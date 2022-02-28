@@ -69,9 +69,9 @@ float I = 0;
 float D = 0;
 
 
-float Kp = 10.0;
-float Ki = 0;
-float Kd = 0;
+float Kp = 0.6;
+float Ki = 0.2;
+float Kd = 0.2;
 
 uint16_t  sensor_value;
 uint16_t  setpoint;
@@ -110,7 +110,7 @@ void loop() {
 
   P = current_error;
 
-  I = I + current_error * dt;
+  I = (I + current_error) * dt;
 
   D = (current_error - previous_error) / dt;
 
@@ -145,7 +145,7 @@ void loop() {
 float PIDcontroller(float P, float I, float D, float Kp, float Ki, float Kd) {
 
   float pid = (P * Kp) + (I * Ki) + (D * Kd);
-
+  Serial.println(pid);
   return pid;
 }
 
