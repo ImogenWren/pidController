@@ -7,37 +7,37 @@
 
         27/02/2022
 
-Proportional tuning:
-involves correcting a target proportional to the difference.
-Thus, the target value is never achieved because as the difference approaches zero,
-so too does the applied correction.
+  Proportional tuning:
+  involves correcting a target proportional to the difference.
+  Thus, the target value is never achieved because as the difference approaches zero,
+  so too does the applied correction.
 
-Integral tuning:
-attempts to remedy this by effectively cumulating the
-error result from the "P" action to increase the correction factor.
-For example, if the oven remained below temperature, 
-“I” would act to increase the head delivered. 
-However, rather than stop heating when the target is reached, 
-"I" attempts to drive the cumulative error to zero, resulting in an overshoot.
+  Integral tuning:
+  attempts to remedy this by effectively cumulating the
+  error result from the "P" action to increase the correction factor.
+  For example, if the oven remained below temperature,
+  “I” would act to increase the head delivered.
+  However, rather than stop heating when the target is reached,
+  "I" attempts to drive the cumulative error to zero, resulting in an overshoot.
 
-Derivative tuning:
-attempts to minimize this overshoot by slowing the correction factor applied as the target is approached.
+  Derivative tuning:
+  attempts to minimize this overshoot by slowing the correction factor applied as the target is approached.
 
-How to Tune PID Controller Manually
-Manual tuning of PID controller is done by:
-- setting the reset time to its maximum value and
-- rate to zero
-- increasing the gain until
- -> the loop oscillates at a constant amplitude.
- 
- When the response to an error correction occurs quickly, a larger gain can be used.
- If response is slow a relatively small gain is desirable.
- 
-Then:
-- set the gain to half of that value 
-- adjust the reset time so it corrects for any offset within an acceptable period. 
+  How to Tune PID Controller Manually
+  Manual tuning of PID controller is done by:
+  - setting the reset time to its maximum value and
+  - rate to zero
+  - increasing the gain until
+  -> the loop oscillates at a constant amplitude.
 
-- Finally, increase the rate until overshoot is minimized.
+  When the response to an error correction occurs quickly, a larger gain can be used.
+  If response is slow a relatively small gain is desirable.
+
+  Then:
+  - set the gain to half of that value
+  - adjust the reset time so it corrects for any offset within an acceptable period.
+
+  - Finally, increase the rate until overshoot is minimized.
 
 
 */
@@ -57,11 +57,11 @@ Then:
 
 
 #define SAMPLE_RATE 1000       // Sample rate for measured_value (Hz)
-#define INPUT_SAMPLERATE 10      // sample rate for User inputs (Hz)
+#define INPUT_SAMPLERATE 1000      // sample rate for User inputs (Hz)
 #define OUTPUT_UPDATE 1000      // Rate for output updates (Hz)
-#define PRINT_RATE 10           // Rate serial print data is printed (Hz)
+#define PRINT_RATE 1000           // Rate serial print data is printed (Hz)
 
-#define DEADBAND 30         // dead band value for hysterisis.
+#define DEADBAND 5        // dead band value for hysterisis.
 
 autoDelay sampleDelay;
 autoDelay printDelay;
@@ -73,12 +73,7 @@ uint32_t output_delay_uS;
 uint32_t print_delay_mS;
 uint32_t input_delay_mS;
 
-#define IN_FILTER_BIAS 0.01         // 0 to 1: Higher numbers = faster response less filtering // Lower numbers = Slower response, more filtering
-#define OUT_FILTER_BIAS 0.1
 
-dataObject inputFilter(IN_FILTER_BIAS, false);
-
-dataObject outputFilter(OUT_FILTER_BIAS, false);
 
 //uint32_t dt = 1;             // loop interval time - seconds?
 float dt = 1.0;                 // dt  = Loop interval time. dt = 1/SAMPLE_RATE
@@ -90,34 +85,48 @@ void setup() {
   sample_delay_uS = calculateSampleDelay(SAMPLE_RATE);
   Serial.print("sample_delay_uS = ");
   Serial.println(sample_delay_uS, 10);
- // dt = 1/float(sample_delay_uS);
- // dt = 1/float(SAMPLE_RATE);
- // dt = SAMPLE_RATE;
+  // dt = 1/float(sample_delay_uS);
+  // dt = 1/float(SAMPLE_RATE);
+  // dt = SAMPLE_RATE;
   Serial.print("dT = ");
   Serial.println(dt, 7);
   delay(2000);
   output_delay_uS = calculateOutputDelay(OUTPUT_UPDATE);
   print_delay_mS = calculatePrintDelay(PRINT_RATE);
   input_delay_mS = calculateInputDelay(INPUT_SAMPLERATE);
+  plotHeader();
 }
 
-#define SENSOR_MIN 200
-#define SENSOR_MAX 900
 
-uint8_t output_value = 0;
-uint8_t last_output_value = 0;
+
+int16_t output_value = 0;    // although output is contrained, maths shouldnt be
+uint8_t last_output_value = 0;   // This one is constrained because it only ever holds the constrained value
 
 int16_t current_error = 0;
 int16_t previous_error = 0;
 int16_t average_error = 0;    // Past N samples
 
+
+
+// Neither of these are used yet
 #define HISTORIC_SAMPLES 100
-
 int8_t error_history[HISTORIC_SAMPLES];
-
-
 #define MAX_DEFLECTION 50  // swing changes in output limited by this amount
 
+
+
+
+#define SENSOR_MIN 120   // Measured for this specific sensor, ATM onlu used to LIMIT the SETPOINT to within a range the sensor can actually accomplish
+#define SENSOR_MAX 800
+
+
+
+
+#define IN_FILTER_BIAS 0.01     // Lots of filtering on input makes it smooth and easy for the PID controller to work  // 0 to 1: Higher numbers = faster response less filtering // Lower numbers = Slower response, more filtering
+#define OUT_FILTER_BIAS 0.6    // Low to no filtering on output makes it extremly fas tto react, however this wouldnt work as easily on a physical system with inertia etc.
+
+dataObject inputFilter(IN_FILTER_BIAS, false);
+dataObject outputFilter(OUT_FILTER_BIAS, false);
 
 
 float P = 0;
@@ -125,17 +134,31 @@ float I = 0;
 float D = 0;
 
 
-float Kp = 0.8;
-float Ki = 0.6;
-float Kd = 0.01;
+float Kp = 0.3;
+float Ki = 0.001;
+float Kd = 0.8;
 
 /*
-   |       | Kp    | Ki    | Kd    |filterIn |filterOut  |   dT              |       Notes                                                                                    |
-   |---    |---    |---    |---    |---      |---        |---                |---                                                                                             |
-   |Test 1 | 0.2   | 0.3   | 0.6   | 0.01    | 0.1       |   1               |Cant cope with big swings. Lots of oscillation, recovers in ~ 7 seconds from small upset dt = 1 |
-   |Test 2 | 0.2   | 0.3   | 0.6   | 0.01    | 0.1       |   1/sample_delay  | Doesnt center on 0                                                                             |
-   |Test 3 | 0.2   | 0.3   | 0.6   | 0.01    | 0.8       |   1               |Cant cope with big swings. smaller oscillation, recovers in ~ 7 seconds from small upset dt = 1 |  
-   |Test 4 | 0.4   | 0.3   | 0.6   | 0.01    | 0.8       |   1               |didnt reach 0 |      
+    Now by ADDING the PID value i.e. THE ADJUSTED AND WEIGHTED ERROR to the CURRENT OUTPUT VALUE. IT WORKS VERY WELL!!!
+
+    Observations. Instead of fading gently, its ramping to min/max very quickly. i.e: Its doing PWM on its own!
+
+    However, this is producing a very smooth sensor reading and very quick tracking.
+
+    I think partly this may be due to the filter? so I am going to experiment with them.
+
+    also first test done with 99.8% proportional
+
+
+
+   |       | Kp    | Ki    | Kd    |filterIn |filterOut  |   dT  |       Notes                                                                                    |
+   |---    |---    |---    |---    |---      |---        |---    |---                                                                                             |
+   | Test 1|0.99   | 0.0   |  0.01 |   0.01  |  0.01     |  1    |  Output ramped up and down very quickly but smooth sensor reading. samples @ input1000 output 10000|
+   | Test 2|0.99   | 0.0   |  0.01 |   0.01  |  1.0      |  1    |  Output ramped up and down more quickly but smooth sensor reading. samples @ input1000 output 10000|
+   | Test 3|0.99   | 0.0   |  0.01 |   0.01  |  0.01     |  1    |  Output ramped up and down very quickly but smooth sensor reading. samples @ input1000 output 10000|
+
+  PS realised that the waverform was not printing the filter smoothed output, this has been fixed
+
 */
 
 uint16_t  sensor_value;
@@ -193,11 +216,13 @@ void loop() {
   // Round Output Value to an int for output
 
   if (P >= DEADBAND || P <= DEADBAND) {
-    output_value = int(PID_correction + 0.5);
-    output_swing = output_value - last_output_value;  
+    // output_value = int(PID_correction + 0.5);//Origional Line
+    output_value = output_value + int(PID_correction + 0.5);//Origional Line
+    output_swing = output_value - last_output_value;
     output_value = constrain(output_value, 0 , 255);
+    output_value = outputFilter.recursiveFilter(output_value);
   }
-  
+
   last_output_value = output_value;
   previous_error = current_error;
 
@@ -209,9 +234,7 @@ void loop() {
 
   // Physical Output
   if (outputDelay.microsDelay(output_delay_uS)) {
-    updateOutput(outputFilter.recursiveFilter(output_value));
-    // uint8_t test_output = map(setpoint, 0, 1023, 0 , 255);
-    // updateOutput(test_output);
+    updateOutput(output_value);
   }
   // Test output to gather data on low and high range of LDR sensor
   // updateOutput(generateTest(0, 255));
@@ -243,13 +266,18 @@ void printOutput() {
 
 void plotOutput() {
   char buffer[64];
-  sprintf(buffer, "%i, %i, %i, %i, %i", setpoint, sensor_value, current_error, output_swing, output_value);
+  sprintf(buffer, "%i, %i, %i, %i", setpoint, sensor_value, current_error, output_value);
   //sprintf(buffer, "%i, %i, %i, %i, %i", setpoint, sensor_value, current_error, previous_error, output_value );
   Serial.println(buffer);
 
 }
 
-
+void plotHeader() {
+  char buffer[64];
+  sprintf(buffer, "setpoint, sensor_value, current_error, output_value");
+  //sprintf(buffer, "%i, %i, %i, %i, %i", setpoint, sensor_value, current_error, previous_error, output_value );
+  Serial.println(buffer);
+}
 
 void updateOutput(uint8_t output_value) {
   analogWrite(OUTPUT_PIN, output_value);
