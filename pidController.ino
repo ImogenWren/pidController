@@ -77,6 +77,8 @@ uint32_t input_delay_mS;
 
 #define SENSOR_MIN 100   // Measured for this specific sensor, ATM onlu used to LIMIT the SETPOINT to within a range the sensor can actually accomplish
 #define SENSOR_MAX 800   //
+// Measured sensor Min = 22
+// Measured sensor Max = 843
 
 #define OUTPUT_MIN 0       // OR use variables for self calibration
 #define OUTPUT_MAX 255
@@ -137,12 +139,6 @@ int16_t error_history[HISTORIC_SAMPLES];
 
 
 
-
-
-// Measured sensor Min = 22
-// Measured sensor Max = 843
-
-
 #define IN_FILTER_BIAS 0.01     // Lots of filtering on input makes it smooth and easy for the PID controller to work  // 0 to 1: Higher numbers = faster response less filtering // Lower numbers = Slower response, more filtering
 #define OUT_FILTER_BIAS 0.7    // Low to no filtering on output makes it extremly fas tto react, however this wouldnt work as easily on a physical system with inertia or structural limitations etc.
 
@@ -155,9 +151,9 @@ float I = 0;
 float D = 0;
 
 
-float Kp = 0.5;
-float Ki = 0.0;
-float Kd = 0.8;
+float Kp = 0.9;     // If we start thinking of these values logically. P = total error, therefore Kp = 1 means the entire error value between 2 samples, will be "corrected" for in a single clock cycle. Lower numbers decrease overall filter responsiveness
+float Ki = 0.01;
+float Kd = 0.01;
 
 /*
     Now by ADDING the PID value i.e. THE ADJUSTED AND WEIGHTED ERROR to the CURRENT OUTPUT VALUE. IT WORKS VERY WELL!!!
