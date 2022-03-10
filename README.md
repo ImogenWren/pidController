@@ -1,16 +1,14 @@
-#pidController
+# PID Controller
+
+_Implementing a bare bones PID Controller from the ground up_
+
+  **Imogen Wren**
  
-/*    # PID Controller
-
-        _Implementing a bare bones PID Controller from the ground up_
-
-        **Imogen Wren**
-
-        27/02/2022
+ 10/03/2022
 
   ## What is a PID Controller?
 
-        A proportional feedback controller that aims to reduce the error between a measured value and a target value
+  _A proportional feedback controller that aims to reduce the error between a measured value and a target value_
 
   _What is PID?_
 
