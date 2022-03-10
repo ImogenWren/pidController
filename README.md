@@ -12,12 +12,12 @@ _Implementing a bare bones PID Controller from the ground up_
 
  ***What is PID?***
 
-  ### ___P___ Proportional tuning:
+  ### **P**        - Proportional tuning:
   _involves correcting a target proportional to the difference.
   Thus, the target value is never achieved because as the difference approaches zero,
   so too does the applied correction._
 
-  ### ___I___ Integral tuning:
+  ### **I**        - Integral tuning:
   _attempts to remedy this by effectively cumulating the
   error result from the "P" action to increase the correction factor.
   For example, if the oven remained below temperature,
@@ -25,7 +25,7 @@ _Implementing a bare bones PID Controller from the ground up_
   However, rather than stop heating when the target is reached,
   "I" attempts to drive the cumulative error to zero, resulting in an overshoot._
 
-  ### ___D___ Derivative tuning:
+  ### **D**        - Derivative tuning:
   _attempts to minimize this overshoot by slowing the correction factor applied as the target is approached._
 
 
