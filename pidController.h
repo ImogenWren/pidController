@@ -58,7 +58,7 @@
 
   This doesn't actually tell us much, but I think it was worth something.
 
-  Full Algorithm:
+ ## Full Algorithm:
 
   P = setpoint - sensor_reading
   I = (I + P) * dt
