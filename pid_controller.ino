@@ -79,6 +79,8 @@ uint32_t input_delay_mS;
 float dt = 1.0;                 // dt  = Loop interval time. dt = 1/SAMPLE_RATE
 
 void setup() {
+
+
   Serial.begin(115200);
   pinMode(OUTPUT_PIN, OUTPUT);
   pinMode(INDICATOR_PIN, OUTPUT);
@@ -195,39 +197,7 @@ void loop() {
 
 
 
-
-  // PID Functions
-
-  current_error = setpoint - sensor_value;    // Current error is = proportional
-
-  P = current_error;
-
-
-
-  I = (I + current_error) * dt;
-
-  D = (current_error - previous_error) / dt;
-
-
-  float PID_correction = PIDcontroller(P, I, D, Kp, Ki, Kd);
-
-
-
-  // Round Output Value to an int for output
-
-  if (P >= DEADBAND || P <= DEADBAND) {
-    // output_value = int(PID_correction + 0.5);//Origional Line
-    output_value = output_value + int(PID_correction + 0.5);//Origional Line
-    output_swing = output_value - last_output_value;
-    output_value = constrain(output_value, 0 , 255);
-    output_value = outputFilter.recursiveFilter(output_value);
-  }
-
-  last_output_value = output_value;
-  previous_error = current_error;
-
-
-
+  output_value = PIDcontroller(setpoint, sensor_value, output_value);
 
 
   // Output Functions
@@ -238,12 +208,44 @@ void loop() {
   }
   // Test output to gather data on low and high range of LDR sensor
   // updateOutput(generateTest(0, 255));
+}
 
+
+
+
+
+
+
+
+
+int16_t PIDcontroller(int16_t setpoint, int16_t sensor_value, int16_t current_output) {
+  // PID Functions
+  current_error = setpoint - sensor_value;    // Current error is = proportional
+  // Calculate seperate P, I & D errors (Do not confuse with P&ID!)
+  P = current_error;
+  I = (I + current_error) * dt;
+  D = (current_error - previous_error) / dt;
+  float PID_correction = PIDgain(P, I, D, Kp, Ki, Kd);    // Each error measurement is multiplied by the gain for each channel then added.
+
+  // Round Output Value to an int for output
+  if (P >= DEADBAND || P <= DEADBAND) {
+    output_value = output_value + int(PID_correction + 0.5);//Origional Line
+    output_swing = output_value - last_output_value;    // Not used currently, but might be useful to limit max swing per sample?
+    output_value = constrain(output_value, 0 , 255);
+    output_value = outputFilter.recursiveFilter(output_value);
+  }
+
+  last_output_value = output_value;
+  previous_error = current_error;
+
+  return output_value;
 
 }
 
 
-float PIDcontroller(float P, float I, float D, float Kp, float Ki, float Kd) {
+
+
+float PIDgain(float P, float I, float D, float Kp, float Ki, float Kd) {
   float pid = (P * Kp) + (I * Ki) + (D * Kd);
   // Serial.println(pid);
   // Next Line Added
@@ -252,9 +254,9 @@ float PIDcontroller(float P, float I, float D, float Kp, float Ki, float Kd) {
 
 
 
-int16_t averageError(int16_t latestError, int16_t) {
-
-
+int16_t averageError(int16_t latest_error) {   // Calculate the average error over the last N samples
+  //MATHS GO HERE
+  return latest_error;
 }
 
 
@@ -283,6 +285,7 @@ void updateOutput(uint8_t output_value) {
   analogWrite(OUTPUT_PIN, output_value);
   analogWrite(INDICATOR_PIN, output_value);    // Mirror output for easy indication
 }
+
 
 
 
