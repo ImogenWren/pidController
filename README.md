@@ -10,7 +10,7 @@ _Implementing a bare bones PID Controller from the ground up_
 
   _A proportional feedback controller that aims to reduce the error between a measured value and a target value_
 
-  _What is PID?_
+ ***What is PID?***
 
   ### ___P___ Proportional tuning:
   _involves correcting a target proportional to the difference.
