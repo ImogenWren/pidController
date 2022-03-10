@@ -64,10 +64,14 @@ _Implementing a bare bones PID Controller from the ground up_
 
   NEW_OUTPUT = old_output + PID_error_correction       <br>
   
+  
+  #### Filtering
   _Input i.e. Sensor Readings & Output should be filtered, to avoid the system responding to environmental and system noise, and to prevent an output 
   from actuating in a way that causes damage. For many purposes the physical output will provide some filtering. In my test circuit, I was using an LED:LDR combination for ACTUATOR:SENSOR feedback loop. The slow response time of the LDR is an inherent level of filtering at the hardware level. Motorised or movement based actuators may have their own response times and natural filtering, as well as potential for phenomenon like natural resonances, that could be exacerbated by the feedback control._
+  
   This is why PID controllers need to be tuned for the specific purpose using **Kp, Ki & Kd float values**
 
+---------------
 
 ## API
 
