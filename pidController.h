@@ -95,14 +95,12 @@ class pidController
     // Constructor
 
     pidController(float filterBias = 0.9, bool serialMonitor = false):
-      printSerial(serialMonitor),
-      w(filterBias)
     {
     }
 
-    void begin(uint32_t baudrate = 115200);    // Serial Comms
 
-    int32_t recursiveFilter(int32_t Xn);
+
+
 
 
 
@@ -118,11 +116,7 @@ class pidController
 
   private:
 
-    int32_t Ypre;   //Y(n-1) Variable used for recursive filter
-
-    float w;             // bias value for recursive filter
-
-    bool printSerial;
+  
 
 };
 

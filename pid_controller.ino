@@ -43,7 +43,7 @@
 */
 
 #include <autoDelay.h>
-#include <dataObject.h>
+#include "dataObject.h"
 
 // Hardware
 
@@ -61,7 +61,7 @@
 #define OUTPUT_UPDATE 1000      // Rate for output updates (Hz)
 #define PRINT_RATE 1000           // Rate serial print data is printed (Hz)
 
-#define DEADBAND 5        // dead band value for hysterisis.
+#define DEADBAND 0        // dead band value for hysterisis.
 
 autoDelay sampleDelay;
 autoDelay printDelay;
@@ -75,28 +75,47 @@ uint32_t input_delay_mS;
 
 
 
+#define SENSOR_MIN 100   // Measured for this specific sensor, ATM onlu used to LIMIT the SETPOINT to within a range the sensor can actually accomplish
+#define SENSOR_MAX 800   //
+
+#define OUTPUT_MIN 0       // OR use variables for self calibration
+#define OUTPUT_MAX 255
+
+#define SELF_CALIBRATION true
+
+struct sensorMinMax {
+  int16_t Smin;
+  int16_t Smax;
+};
+
+sensorMinMax sensorCal;  // global 
+
+
 //uint32_t dt = 1;             // loop interval time - seconds?
 float dt = 1.0;                 // dt  = Loop interval time. dt = 1/SAMPLE_RATE
 
 void setup() {
-
-
   Serial.begin(115200);
   pinMode(OUTPUT_PIN, OUTPUT);
   pinMode(INDICATOR_PIN, OUTPUT);
   sample_delay_uS = calculateSampleDelay(SAMPLE_RATE);
-  Serial.print("sample_delay_uS = ");
-  Serial.println(sample_delay_uS, 10);
+  // Serial.print("sample_delay_uS = ");
+  // Serial.println(sample_delay_uS, 10);
   // dt = 1/float(sample_delay_uS);
   // dt = 1/float(SAMPLE_RATE);
   // dt = SAMPLE_RATE;
-  Serial.print("dT = ");
-  Serial.println(dt, 7);
-  delay(2000);
+  //  Serial.print("dT = ");
+  //  Serial.println(dt, 7);
+  // delay(2000);
   output_delay_uS = calculateOutputDelay(OUTPUT_UPDATE);
   print_delay_mS = calculatePrintDelay(PRINT_RATE);
   input_delay_mS = calculateInputDelay(INPUT_SAMPLERATE);
+  sensorCal = sensorSelfCalibrate();
+  Serial.print(sensorCal.Smin);
+  Serial.print("  :  ");
+  Serial.println(sensorCal.Smax);
   plotHeader();
+  delay(2000);
 }
 
 
@@ -112,20 +131,20 @@ int16_t average_error = 0;    // Past N samples
 
 // Neither of these are used yet
 #define HISTORIC_SAMPLES 100
-int8_t error_history[HISTORIC_SAMPLES];
+int16_t error_history[HISTORIC_SAMPLES];
 #define MAX_DEFLECTION 50  // swing changes in output limited by this amount
 
 
 
 
-#define SENSOR_MIN 120   // Measured for this specific sensor, ATM onlu used to LIMIT the SETPOINT to within a range the sensor can actually accomplish
-#define SENSOR_MAX 800
 
 
+// Measured sensor Min = 22
+// Measured sensor Max = 843
 
 
 #define IN_FILTER_BIAS 0.01     // Lots of filtering on input makes it smooth and easy for the PID controller to work  // 0 to 1: Higher numbers = faster response less filtering // Lower numbers = Slower response, more filtering
-#define OUT_FILTER_BIAS 0.6    // Low to no filtering on output makes it extremly fas tto react, however this wouldnt work as easily on a physical system with inertia etc.
+#define OUT_FILTER_BIAS 0.7    // Low to no filtering on output makes it extremly fas tto react, however this wouldnt work as easily on a physical system with inertia or structural limitations etc.
 
 dataObject inputFilter(IN_FILTER_BIAS, false);
 dataObject outputFilter(OUT_FILTER_BIAS, false);
@@ -136,8 +155,8 @@ float I = 0;
 float D = 0;
 
 
-float Kp = 0.3;
-float Ki = 0.001;
+float Kp = 0.5;
+float Ki = 0.0;
 float Kd = 0.8;
 
 /*
@@ -192,7 +211,7 @@ void loop() {
 
   if (inputDelay.millisDelay(input_delay_mS)) {
     setpoint = generateSetpoint();
-    // setpoint = dataLib.recursiveFilter(setpoint);
+    // setpoint = dataLib.recursiveFilter(setpoint);   // Set point doesnt need filtering for now
   }
 
 
@@ -206,14 +225,29 @@ void loop() {
   if (outputDelay.microsDelay(output_delay_uS)) {
     updateOutput(output_value);
   }
-  // Test output to gather data on low and high range of LDR sensor
-  // updateOutput(generateTest(0, 255));
+  // Test output for sensor calibration
+  //updateOutput(generateTest(0, 255));
 }
 
 
 
 
-
+sensorMinMax sensorSelfCalibrate() {
+  sensorMinMax calibration; 
+  if (SELF_CALIBRATION) {
+    updateOutput(OUTPUT_MIN);
+    delay(1000); // allow input to stabalise
+    // Averaging Script would be best
+    int16_t Smin = readSensor();
+    updateOutput(OUTPUT_MAX);
+    delay(1000);
+    int16_t Smax = readSensor();
+    calibration = {Smin, Smax};
+  } else {
+    calibration = {SENSOR_MIN, SENSOR_MAX};            // If not Self calibration, use manually provided values
+  }
+  return calibration;
+}
 
 
 
@@ -296,10 +330,12 @@ uint16_t generateTest(uint16_t low_map, uint16_t high_map) {
   return test_value;
 }
 
+#define MIN_BUFFER 20   // Lower range headroom for target sensor value
+#define MAX_BUFFER 100   // upper range headroom for target sensor value
 
 uint16_t generateSetpoint() {
   uint16_t setpoint = analogRead(SETPOINT_PIN);
-  setpoint = map(setpoint, 0, 1024, SENSOR_MIN, SENSOR_MAX);
+  setpoint = map(setpoint, 0, 1024, sensorCal.Smin+MIN_BUFFER, sensorCal.Smax-MAX_BUFFER);
   return setpoint;
 }
 
