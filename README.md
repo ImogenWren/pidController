@@ -36,33 +36,41 @@ _Implementing a bare bones PID Controller from the ground up_
 
   Example: setpoint = 100, sensor_reading = 120
 
-          -20 = 100 -120
+          -20 = 100 - 120
 
-   therefore P = -20
+          therefore P = -20
 
      
  ####  I = (I + current_error) * dt;
 
-  iteration 1, I = 0
+        iteration 1, I = 0
 
-  I = (0 + -20) * dt
-  I = -20
+         I = (0 + -20) * dt
+         I = -20
 
  
  #### D = (current_error - previous_error) / dt;
 
- D = -20 - (-10) / dt
+         D = -20 - (-10) / dt
 
-  This doesn't actually tell us much, but I think it was worth something.
 
  ## Full Algorithm:
 
-  P = setpoint - sensor_reading
-  I = (I + P) * dt
-  D = (P - previous_P) / dt
+  P = setpoint - sensor_reading                        <br>
+  I = (I + P) * dt                                     <br>
+  D = (P - previous_P) / dt                            <br>
   
-  PID_error_correction = P*Kp + I*Ki + D*Kd
+  PID_error_correction = P*Kp + I*Ki + D*Kd            <br>
 
-  NEW_OUTPUT = old_output + PID_error_correction
+  NEW_OUTPUT = old_output + PID_error_correction       <br>
+  
+  _Input i.e. Sensor Readings & Output should be filtered, to avoid the system responding to environmental and system noise, and to prevent an output 
+  from actuating in a way that causes damage. For many purposes the physical output will provide some filtering. In my test circuit, I was using an LED:LDR combination for ACTUATOR:SENSOR feedback loop. The slow response time of the LDR is an inherent level of filtering at the hardware level. Motorised or movement based actuators may have their own response times and natural filtering, as well as potential for phenomenon like natural resonances, that could be exacerbated by the feedback control._
+  This is why PID controllers need to be tuned for the specific purpose using **Kp, Ki & Kd float values**
 
-*/
+
+## API
+
+_interaction with this library_
+
+
