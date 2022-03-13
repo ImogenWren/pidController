@@ -33,7 +33,7 @@
 
 
   ## The Maths
-  #### P = current_error; 
+  #### P = current_error;
 
      i.e current_error = setpoint - sensor_reading
 
@@ -43,27 +43,27 @@
 
    therefore P = -20
 
-     
- ####  I = (I + current_error) * dt;
+
+  ####  I = (I + current_error) * dt;
 
   iteration 1, I = 0
 
   I = (0 + -20) * dt
   I = -20
 
- 
- #### D = (current_error - previous_error) / dt;
 
- D = -20 - (-10) / dt
+  #### D = (current_error - previous_error) / dt;
+
+  D = -20 - (-10) / dt
 
   This doesn't actually tell us much, but I think it was worth something.
 
- ## Full Algorithm:
+  ## Full Algorithm:
 
   P = setpoint - sensor_reading
   I = (I + P) * dt
   D = (P - previous_P) / dt
-  
+
   PID_error_correction = P*Kp + I*Ki + D*Kd
 
   NEW_OUTPUT = old_output + PID_error_correction
@@ -83,9 +83,57 @@
 #endif
 
 #include <dataObject.h>   // Used for input & output filtering
-#include <autoDelay.h>  
+#include <autoDelay.h>
 
 
+
+// Hardware
+
+#define ADC_PIN A0                      // sensor
+#define SETPOINT_PIN A7                 // User Control
+#define OUTPUT_PIN 9                    // Output
+#define INDICATOR_PIN 3                 // User Indication
+#define ANALOG_TEST A3                  // User Test Input/Control
+
+// Variables/Settings
+
+// Neither of these are used yet
+#define HISTORIC_SAMPLES 100
+int16_t error_history[HISTORIC_SAMPLES];
+#define MAX_DEFLECTION 50  // swing changes in output limited by this amount
+
+
+
+
+#define SAMPLE_RATE 1000       // Sample rate for measured_value (Hz)
+#define INPUT_SAMPLERATE 1000      // sample rate for User inputs (Hz)
+#define OUTPUT_UPDATE 1000      // Rate for output updates (Hz)
+#define PRINT_RATE 1000           // Rate serial print data is printed (Hz)
+
+#define DEADBAND 0        // dead band value for hysterisis.
+
+
+
+
+#define SENSOR_MIN 100   // Measured for this specific sensor, ATM onlu used to LIMIT the SETPOINT to within a range the sensor can actually accomplish
+#define SENSOR_MAX 800   //
+// Measured sensor Min = 22
+// Measured sensor Max = 843
+
+#define OUTPUT_MIN 0       // OR use variables for self calibration
+#define OUTPUT_MAX 255
+
+#define SELF_CALIBRATION true
+
+
+
+//sensorMinMax sensorCal;  // global
+
+#define IN_FILTER_BIAS 0.01     // Lots of filtering on input makes it smooth and easy for the PID controller to work  // 0 to 1: Higher numbers = faster response less filtering // Lower numbers = Slower response, more filtering
+#define OUT_FILTER_BIAS 0.7    // Low to no filtering on output makes it extremly fas tto react, however this wouldnt work as easily on a physical system with inertia or structural limitations etc.
+
+
+// Just a thought. Instead of adding all of the sensor reads to this library, it should be maths only?
 
 
 class pidController
@@ -94,13 +142,95 @@ class pidController
   public:
     // Constructor
 
-    pidController(float filterBias = 0.9, bool serialMonitor = false):
+    pidController():
     {
     }
 
+    void begin();
 
 
 
+    uint32_t output_delay_uS;
+    uint32_t  print_delay_mS;
+    uint32_t input_delay_mS;
+
+    struct sensorMinMax {
+      int16_t Smin;
+      int16_t Smax;
+    };
+
+    sensorMinMax sensorCal;
+
+
+    uint8_t last_output_value = 0;   // This one is constrained because it only ever holds the constrained value
+
+    int16_t current_error = 0;
+    int16_t previous_error = 0;
+
+
+    int16_t average_error = 0;    // Past N samples NOT IMPLEMENTED YET
+
+    //uint32_t dt = 1;             // loop interval time - seconds?
+    float dt = 1.0;                 // dt  = Loop interval time. dt = 1/SAMPLE_RATE
+
+
+    float P = 0;
+    float I = 0;
+    float D = 0;
+
+
+    float Kp = 0.6;     // If we start thinking of these values logically. P = total error, therefore Kp = 1 means the entire error value between 2 samples, will be "corrected" for in a single clock cycle. Lower numbers decrease overall filter responsiveness
+    float Ki = 0.01;
+    float Kd = 0.3;
+
+
+
+
+
+
+
+
+    int16_t pidController::smoothInput(int16_t sensor_value);
+
+    int16_t pidController::smoothOutput(int16_t output_value) ;
+
+
+    int16_t pidController::PIDcontroller(int16_t setpoint, int16_t sensor_value, int16_t current_output);
+
+
+
+
+    float PIDgain(float P, float I, float D, float Kp, float Ki, float Kd);
+
+
+
+    int16_t averageError(int16_t latest_error);  // Calculate the average error over the last N samples
+
+
+
+
+
+    void printOutput();
+
+    void plotOutput();
+
+    void plotHeader();
+
+
+
+
+
+
+    uint16_t pidController::generateTest(uint16_t low_map, uint16_t high_map) {
+      uint16_t test_value = analogRead(ANALOG_TEST);
+      test_value = map(test_value, 0, 1024, low_map, high_map);
+      return test_value;
+    }
+
+#define MIN_BUFFER 20   // Lower range headroom for target sensor value
+#define MAX_BUFFER 120   // upper range headroom for target sensor value
+
+    uint16_t generateSetpoint();
 
 
 
@@ -110,13 +240,21 @@ class pidController
 
 
 
-    // Variables
 
 
 
   private:
 
-  
+    dataObject inputFilter(IN_FILTER_BIAS, false);
+    dataObject outputFilter(OUT_FILTER_BIAS, false);
+
+
+
+    uint32_t calculateSampleDelay(uint32_t sample_rate);
+    uint32_t calculateOutputDelay(uint32_t sample_rate) ;
+    uint32_t calculatePrintDelay(uint32_t print_rate) ;
+    uint32_t calculateInputDelay(uint32_t input_rate);
+
 
 };
 

@@ -44,139 +44,31 @@
 
 #include <autoDelay.h>
 #include "dataObject.h"
-
-// Hardware
-
-#define ADC_PIN A0                      // sensor
-#define SETPOINT_PIN A7                 // User Control
-#define OUTPUT_PIN 9                    // Output
-#define INDICATOR_PIN 3                 // User Indication
-#define ANALOG_TEST A3                  // User Test Input/Control
-
-// Variables/Settings
-
-
-#define SAMPLE_RATE 1000       // Sample rate for measured_value (Hz)
-#define INPUT_SAMPLERATE 1000      // sample rate for User inputs (Hz)
-#define OUTPUT_UPDATE 1000      // Rate for output updates (Hz)
-#define PRINT_RATE 1000           // Rate serial print data is printed (Hz)
-
-#define DEADBAND 0        // dead band value for hysterisis.
-
-autoDelay sampleDelay;
-autoDelay printDelay;
-autoDelay inputDelay;
-autoDelay outputDelay;
-
-uint32_t sample_delay_uS;
-uint32_t output_delay_uS;
-uint32_t print_delay_mS;
-uint32_t input_delay_mS;
+#include "pidController.h"
 
 
 
-#define SENSOR_MIN 100   // Measured for this specific sensor, ATM onlu used to LIMIT the SETPOINT to within a range the sensor can actually accomplish
-#define SENSOR_MAX 800   //
-// Measured sensor Min = 22
-// Measured sensor Max = 843
-
-#define OUTPUT_MIN 0       // OR use variables for self calibration
-#define OUTPUT_MAX 255
-
-#define SELF_CALIBRATION true
-
-struct sensorMinMax {
-  int16_t Smin;
-  int16_t Smax;
-};
-
-sensorMinMax sensorCal;  // global 
+pidController PID();
 
 
-//uint32_t dt = 1;             // loop interval time - seconds?
-float dt = 1.0;                 // dt  = Loop interval time. dt = 1/SAMPLE_RATE
+
 
 void setup() {
-  Serial.begin(115200);
+
   pinMode(OUTPUT_PIN, OUTPUT);
   pinMode(INDICATOR_PIN, OUTPUT);
-  sample_delay_uS = calculateSampleDelay(SAMPLE_RATE);
-  // Serial.print("sample_delay_uS = ");
-  // Serial.println(sample_delay_uS, 10);
-  // dt = 1/float(sample_delay_uS);
-  // dt = 1/float(SAMPLE_RATE);
-  // dt = SAMPLE_RATE;
-  //  Serial.print("dT = ");
-  //  Serial.println(dt, 7);
-  // delay(2000);
-  output_delay_uS = calculateOutputDelay(OUTPUT_UPDATE);
-  print_delay_mS = calculatePrintDelay(PRINT_RATE);
-  input_delay_mS = calculateInputDelay(INPUT_SAMPLERATE);
-  sensorCal = sensorSelfCalibrate();
-  Serial.print(sensorCal.Smin);
-  Serial.print("  :  ");
-  Serial.println(sensorCal.Smax);
-  plotHeader();
-  delay(2000);
+  PID.begin();
+  sensorMinMax = sensorSelfCalibrate();
+  //  delay(2000);
 }
 
 
 
 int16_t output_value = 0;    // although output is contrained, maths shouldnt be
-uint8_t last_output_value = 0;   // This one is constrained because it only ever holds the constrained value
-
-int16_t current_error = 0;
-int16_t previous_error = 0;
-int16_t average_error = 0;    // Past N samples
-
-
-
-// Neither of these are used yet
-#define HISTORIC_SAMPLES 100
-int16_t error_history[HISTORIC_SAMPLES];
-#define MAX_DEFLECTION 50  // swing changes in output limited by this amount
 
 
 
 
-#define IN_FILTER_BIAS 0.01     // Lots of filtering on input makes it smooth and easy for the PID controller to work  // 0 to 1: Higher numbers = faster response less filtering // Lower numbers = Slower response, more filtering
-#define OUT_FILTER_BIAS 0.7    // Low to no filtering on output makes it extremly fas tto react, however this wouldnt work as easily on a physical system with inertia or structural limitations etc.
-
-dataObject inputFilter(IN_FILTER_BIAS, false);
-dataObject outputFilter(OUT_FILTER_BIAS, false);
-
-
-float P = 0;
-float I = 0;
-float D = 0;
-
-
-float Kp = 0.9;     // If we start thinking of these values logically. P = total error, therefore Kp = 1 means the entire error value between 2 samples, will be "corrected" for in a single clock cycle. Lower numbers decrease overall filter responsiveness
-float Ki = 0.01;
-float Kd = 0.01;
-
-/*
-    Now by ADDING the PID value i.e. THE ADJUSTED AND WEIGHTED ERROR to the CURRENT OUTPUT VALUE. IT WORKS VERY WELL!!!
-
-    Observations. Instead of fading gently, its ramping to min/max very quickly. i.e: Its doing PWM on its own!
-
-    However, this is producing a very smooth sensor reading and very quick tracking.
-
-    I think partly this may be due to the filter? so I am going to experiment with them.
-
-    also first test done with 99.8% proportional
-
-
-
-   |       | Kp    | Ki    | Kd    |filterIn |filterOut  |   dT  |       Notes                                                                                    |
-   |---    |---    |---    |---    |---      |---        |---    |---                                                                                             |
-   | Test 1|0.99   | 0.0   |  0.01 |   0.01  |  0.01     |  1    |  Output ramped up and down very quickly but smooth sensor reading. samples @ input1000 output 10000|
-   | Test 2|0.99   | 0.0   |  0.01 |   0.01  |  1.0      |  1    |  Output ramped up and down more quickly but smooth sensor reading. samples @ input1000 output 10000|
-   | Test 3|0.99   | 0.0   |  0.01 |   0.01  |  0.01     |  1    |  Output ramped up and down very quickly but smooth sensor reading. samples @ input1000 output 10000|
-
-  PS realised that the waverform was not printing the filter smoothed output, this has been fixed
-
-*/
 
 uint16_t  sensor_value;
 uint16_t  setpoint;
@@ -185,6 +77,16 @@ uint16_t  setpoint;
 int32_t output_swing;
 
 
+autoDelay sampleDelay;
+autoDelay printDelay;
+autoDelay inputDelay;
+autoDelay outputDelay;
+
+// Variables
+uint32_t sample_delay_uS;
+uint32_t output_delay_uS;
+uint32_t print_delay_mS;
+uint32_t input_delay_mS;
 
 
 void loop() {
@@ -192,7 +94,7 @@ void loop() {
   // Debugging/Monitoring Output
   if (printDelay.millisDelay(print_delay_mS)) {
     //printOutput();
-    plotOutput();
+    PID.plotOutput();
   }
 
 
@@ -201,7 +103,7 @@ void loop() {
 
   if (sampleDelay.microsDelay(sample_delay_uS)) {
     sensor_value = readSensor();
-    sensor_value = inputFilter.recursiveFilter(sensor_value);
+    sensor_value = PID.smoothInput(sensorValue);
   }
 
 
@@ -212,13 +114,13 @@ void loop() {
 
 
 
-  output_value = PIDcontroller(setpoint, sensor_value, output_value);
+  output_value = PID.PIDcontroller(setpoint, sensor_value, output_value);
 
 
   // Output Functions
 
   // Physical Output
-  if (outputDelay.microsDelay(output_delay_uS)) {
+  if (outputDelay.microsDelay(PID.output_delay_uS)) {
     updateOutput(output_value);
   }
   // Test output for sensor calibration
@@ -227,9 +129,8 @@ void loop() {
 
 
 
-
-sensorMinMax sensorSelfCalibrate() {
-  sensorMinMax calibration; 
+PID.sensorMinMax sensorSelfCalibrate() {
+  sensorMinMax calibration;
   if (SELF_CALIBRATION) {
     updateOutput(OUTPUT_MIN);
     delay(1000); // allow input to stabalise
@@ -247,68 +148,9 @@ sensorMinMax sensorSelfCalibrate() {
 
 
 
-
-int16_t PIDcontroller(int16_t setpoint, int16_t sensor_value, int16_t current_output) {
-  // PID Functions
-  current_error = setpoint - sensor_value;    // Current error is = proportional
-  // Calculate seperate P, I & D errors (Do not confuse with P&ID!)
-  P = current_error;
-  I = (I + current_error) * dt;
-  D = (current_error - previous_error) / dt;
-  float PID_correction = PIDgain(P, I, D, Kp, Ki, Kd);    // Each error measurement is multiplied by the gain for each channel then added.
-
-  // Round Output Value to an int for output
-  if (P >= DEADBAND || P <= DEADBAND) {
-    output_value = output_value + int(PID_correction + 0.5);//Origional Line
-    output_swing = output_value - last_output_value;    // Not used currently, but might be useful to limit max swing per sample?
-    output_value = constrain(output_value, 0 , 255);
-    output_value = outputFilter.recursiveFilter(output_value);
-  }
-
-  last_output_value = output_value;
-  previous_error = current_error;
-
-  return output_value;
-
-}
-
-
-
-
-float PIDgain(float P, float I, float D, float Kp, float Ki, float Kd) {
-  float pid = (P * Kp) + (I * Ki) + (D * Kd);
-  // Serial.println(pid);
-  // Next Line Added
-  return pid;
-}
-
-
-
-int16_t averageError(int16_t latest_error) {   // Calculate the average error over the last N samples
-  //MATHS GO HERE
-  return latest_error;
-}
-
-
-void printOutput() {
-  char buffer[64];
-  sprintf(buffer, "setpoint: [%i], sensor: [%i], error_c:[%i], error_p[%i], out[%i] ", setpoint, sensor_value, current_error, previous_error, output_value );
-  Serial.println(buffer);
-}
-
-void plotOutput() {
-  char buffer[64];
-  sprintf(buffer, "%i, %i, %i, %i", setpoint, sensor_value, current_error, output_value);
-  //sprintf(buffer, "%i, %i, %i, %i, %i", setpoint, sensor_value, current_error, previous_error, output_value );
-  Serial.println(buffer);
-
-}
-
-void plotHeader() {
-  char buffer[64];
-  sprintf(buffer, "setpoint, sensor_value, current_error, output_value");
-  //sprintf(buffer, "%i, %i, %i, %i, %i", setpoint, sensor_value, current_error, previous_error, output_value );
-  Serial.println(buffer);
+uint16_t readSensor() {
+  sensor_value = analogRead(ADC_PIN);
+  return sensor_value;
 }
 
 void updateOutput(uint8_t output_value) {
@@ -319,45 +161,15 @@ void updateOutput(uint8_t output_value) {
 
 
 
-
-uint16_t generateTest(uint16_t low_map, uint16_t high_map) {
-  uint16_t test_value = analogRead(ANALOG_TEST);
-  test_value = map(test_value, 0, 1024, low_map, high_map);
-  return test_value;
-}
-
-#define MIN_BUFFER 20   // Lower range headroom for target sensor value
-#define MAX_BUFFER 100   // upper range headroom for target sensor value
-
-uint16_t generateSetpoint() {
-  uint16_t setpoint = analogRead(SETPOINT_PIN);
-  setpoint = map(setpoint, 0, 1024, sensorCal.Smin+MIN_BUFFER, sensorCal.Smax-MAX_BUFFER);
-  return setpoint;
-}
-
-uint16_t readSensor() {
-  sensor_value = analogRead(ADC_PIN);
-  return sensor_value;
-}
+/*
 
 
-uint32_t calculateSampleDelay(uint32_t sample_rate) {
-  uint32_t sample_delay_uS = 1000000 / sample_rate;
-  return sample_delay_uS;
-}
+   |       | Kp    | Ki    | Kd    |filterIn |filterOut  |   dT  |       Notes                                                                                    |
+   |---    |---    |---    |---    |---      |---        |---    |---                                                                                             |
+   | Test 1|0.99   | 0.0   |  0.01 |   0.01  |  0.01     |  1    |  Output ramped up and down very quickly but smooth sensor reading. samples @ input1000 output 10000|
+   | Test 2|0.99   | 0.0   |  0.01 |   0.01  |  1.0      |  1    |  Output ramped up and down more quickly but smooth sensor reading. samples @ input1000 output 10000|
+   | Test 3|0.99   | 0.0   |  0.01 |   0.01  |  0.01     |  1    |  Output ramped up and down very quickly but smooth sensor reading. samples @ input1000 output 10000|
 
-uint32_t calculateOutputDelay(uint32_t sample_rate) {
-  uint32_t output_delay_uS = 1000000 / sample_rate;
-  return output_delay_uS;
-}
+  PS realised that the waverform was not printing the filter smoothed output, this has been fixed
 
-uint32_t calculatePrintDelay(uint32_t print_rate) {
-  uint32_t print_delay_mS = 1000 / print_rate;
-  return print_delay_mS;
-}
-
-
-uint32_t calculateInputDelay(uint32_t input_rate) {
-  uint32_t input_delay_mS = 1000 / input_rate;
-  return input_delay_mS;
-}
+*/
