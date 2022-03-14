@@ -82,6 +82,8 @@
 #include <wProgram.h>
 #endif
 
+
+
 #include <dataObject.h>   // Used for input & output filtering
 #include <autoDelay.h>
 
@@ -130,21 +132,23 @@ int16_t error_history[HISTORIC_SAMPLES];
 //sensorMinMax sensorCal;  // global
 
 #define IN_FILTER_BIAS 0.01     // Lots of filtering on input makes it smooth and easy for the PID controller to work  // 0 to 1: Higher numbers = faster response less filtering // Lower numbers = Slower response, more filtering
-#define OUT_FILTER_BIAS 0.7 
-  
+//#define OUT_FILTER_BIAS 0.7
+#define OUT_FILTER_BIAS 1.0
+
 // Low to no filtering on output makes it extremly fas tto react, however this wouldnt work as easily on a physical system with inertia or structural limitations etc.
 
 
 // Just a thought. Instead of adding all of the sensor reads to this library, it should be maths only?
 
 
-class pidController{
+class pidController {
 
   public:
+  
     // Constructor
-
     pidController();
 
+    
     void begin();
 
 
@@ -191,7 +195,7 @@ class pidController{
 
     int16_t smoothInput(int16_t sensor_value);
 
-    int16_t smoothOutput(int16_t output_value) ;
+    int16_t smoothOutput(int16_t output_value);
 
 
     int16_t PIDcontroller(int16_t setpoint, int16_t sensor_value, int16_t current_output);
@@ -220,8 +224,8 @@ class pidController{
 
 
 
-    uint16_t pidController::generateTest(uint16_t low_map, uint16_t high_map);
-    
+    uint16_t generateTest(uint16_t low_map, uint16_t high_map);
+
 
 
 
@@ -236,8 +240,8 @@ class pidController{
 
   private:
 
-    dataObject inputFilter(IN_FILTER_BIAS, false);
-    dataObject outputFilter(OUT_FILTER_BIAS, false);
+    dataObject inputFilter(float filter_bias = IN_FILTER_BIAS);
+    dataObject outputFilter(float filter_bias = OUT_FILTER_BIAS);
 
 
 
