@@ -123,28 +123,27 @@ int16_t error_history[HISTORIC_SAMPLES];
 #define OUTPUT_MIN 0       // OR use variables for self calibration
 #define OUTPUT_MAX 255
 
-#define SELF_CALIBRATION true
+//#define SELF_CALIBRATION true
 
 
 
 //sensorMinMax sensorCal;  // global
 
 #define IN_FILTER_BIAS 0.01     // Lots of filtering on input makes it smooth and easy for the PID controller to work  // 0 to 1: Higher numbers = faster response less filtering // Lower numbers = Slower response, more filtering
-#define OUT_FILTER_BIAS 0.7    // Low to no filtering on output makes it extremly fas tto react, however this wouldnt work as easily on a physical system with inertia or structural limitations etc.
+#define OUT_FILTER_BIAS 0.7 
+  
+// Low to no filtering on output makes it extremly fas tto react, however this wouldnt work as easily on a physical system with inertia or structural limitations etc.
 
 
 // Just a thought. Instead of adding all of the sensor reads to this library, it should be maths only?
 
 
-class pidController
-{
+class pidController{
 
   public:
     // Constructor
 
-    pidController():
-    {
-    }
+    pidController();
 
     void begin();
 
@@ -190,12 +189,12 @@ class pidController
 
 
 
-    int16_t pidController::smoothInput(int16_t sensor_value);
+    int16_t smoothInput(int16_t sensor_value);
 
-    int16_t pidController::smoothOutput(int16_t output_value) ;
+    int16_t smoothOutput(int16_t output_value) ;
 
 
-    int16_t pidController::PIDcontroller(int16_t setpoint, int16_t sensor_value, int16_t current_output);
+    int16_t PIDcontroller(int16_t setpoint, int16_t sensor_value, int16_t current_output);
 
 
 
@@ -221,16 +220,8 @@ class pidController
 
 
 
-    uint16_t pidController::generateTest(uint16_t low_map, uint16_t high_map) {
-      uint16_t test_value = analogRead(ANALOG_TEST);
-      test_value = map(test_value, 0, 1024, low_map, high_map);
-      return test_value;
-    }
-
-#define MIN_BUFFER 20   // Lower range headroom for target sensor value
-#define MAX_BUFFER 120   // upper range headroom for target sensor value
-
-    uint16_t generateSetpoint();
+    uint16_t pidController::generateTest(uint16_t low_map, uint16_t high_map);
+    
 
 
 

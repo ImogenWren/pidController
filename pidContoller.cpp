@@ -36,6 +36,9 @@
 #include "pidController.h"
 
 
+pidController::pidController(){
+  
+}
 
 void pidController::begin() {
   Serial.begin(115200);
@@ -149,14 +152,7 @@ uint16_t pidController::generateTest(uint16_t low_map, uint16_t high_map) {
   return test_value;
 }
 
-#define MIN_BUFFER 20   // Lower range headroom for target sensor value
-#define MAX_BUFFER 120   // upper range headroom for target sensor value
 
-uint16_t pidController::generateSetpoint() {
-  uint16_t setpoint = analogRead(SETPOINT_PIN);
-  setpoint = map(setpoint, 0, 1024, sensorCal.Smin + MIN_BUFFER, sensorCal.Smax - MAX_BUFFER);
-  return setpoint;
-}
 
 
 

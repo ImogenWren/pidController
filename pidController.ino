@@ -153,6 +153,16 @@ uint16_t readSensor() {
   return sensor_value;
 }
 
+#define MIN_BUFFER 20   // Lower range headroom for target sensor value
+#define MAX_BUFFER 120   // upper range headroom for target sensor value
+
+
+uint16_t generateSetpoint() {
+  uint16_t setpoint = analogRead(SETPOINT_PIN);
+  setpoint = map(setpoint, 0, 1024, sensorCal.Smin + MIN_BUFFER, sensorCal.Smax - MAX_BUFFER);
+  return setpoint;
+}
+
 void updateOutput(uint8_t output_value) {
   analogWrite(OUTPUT_PIN, output_value);
   analogWrite(INDICATOR_PIN, output_value);    // Mirror output for easy indication
