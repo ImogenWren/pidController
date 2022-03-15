@@ -52,9 +52,15 @@ pidController PID;
 
 
 
+autoDelay sampleDelay;
+autoDelay printDelay;
+autoDelay inputDelay;
+autoDelay outputDelay;
 
 
-
+#define P_GAIN 0.7
+#define I_GAIN 0.01
+#define D_GAIN 0.3
 
 
 
@@ -64,7 +70,8 @@ void setup() {
   pinMode(OUTPUT_PIN, OUTPUT);
   pinMode(INDICATOR_PIN, OUTPUT);
   PID.begin();
-  PID.sensorCal = PID.sensorSelfCalibrate();
+  PID.updateGain(P_GAIN, I_GAIN, D_GAIN);
+  // PID.sensorCal = PID.sensorSelfCalibrate(); < Some thought needs to go into this one, maybe calibrateSensorLOW(LOCAL_SENSOR_READING, LOW_BUFFER); and same for calSensorHIGH
   //  delay(2000);
 }
 
@@ -83,56 +90,53 @@ uint16_t  setpoint;
 int32_t output_swing;
 
 
-autoDelay sampleDelay;
-autoDelay printDelay;
-autoDelay inputDelay;
-autoDelay outputDelay;
-
 // Variables
 
 void loop() {
 
-  // Debugging/Monitoring Output
-  if (printDelay.millisDelay(PID.print_delay_mS)) {
-    //  PID.printOutput();
-    PID.plotOutput();
-  }
+
 
 
 
   // Input Functions
 
-  if (sampleDelay.microsDelay(PID.sample_delay_uS)) {
-    PID.sensor_value = readSensor();
-    PID.sensor_value = PID.smoothInput(sensor_value);
+  if (sampleDelay.microsDelay(PID.g_sample_delay_uS)) {
+    PID.updateInput(readSensor());
   }
 
 
-  if (inputDelay.millisDelay(PID.input_delay_mS)) {
-    PID.setpoint = generateSetpoint();
-    // PID.setpoint = PID.dataLib.recursiveFilter(PID.setpoint);   // Set point doesnt need filtering for now
+  if (inputDelay.millisDelay(PID.g_input_delay_mS)) {
+    PID.updateSetpoint(generateSetpoint());
   }
 
 
 
-  PID.output_value = PID.PIDcontroller(PID.setpoint, PID.sensor_value, PID.output_value);
+  PID.g_output_value = PID.PIDcontroller(PID.g_setpoint, PID.g_sensor_value, PID.g_output_value);
 
 
   // Output Functions
 
   // Physical Output
-  if (outputDelay.microsDelay(PID.output_delay_uS)) {
-    updateOutput(PID.output_value);
+  if (outputDelay.microsDelay(PID.g_output_delay_uS)) {
+    updateOutput(PID.g_output_value);
   }
   // Test output for sensor calibration
   //updateOutput(generateTest(0, 255));
+
+
+
+  // Debugging/Monitoring Output
+  if (printDelay.millisDelay(PID.g_print_delay_mS)) {
+    //  PID.printOutput();
+    PID.plotOutput();
+  }
 }
 
 
 
 
 
-uint16_t readSensor() {
+int16_t readSensor() {
   sensor_value = analogRead(ADC_PIN);
   return sensor_value;
 }
@@ -141,8 +145,8 @@ uint16_t readSensor() {
 #define MAX_BUFFER 120   // upper range headroom for target sensor value
 
 
-uint16_t generateSetpoint() {
-  uint16_t setpoint = analogRead(SETPOINT_PIN);
+int16_t generateSetpoint() {
+  int16_t setpoint = analogRead(SETPOINT_PIN);
   setpoint = map(setpoint, 0, 1024, PID.sensorCal.Smin + MIN_BUFFER, PID.sensorCal.Smax - MAX_BUFFER);
   return setpoint;
 }

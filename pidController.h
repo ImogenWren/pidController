@@ -141,115 +141,149 @@
 // Just a thought. Instead of adding all of the sensor reads to this library, it should be maths only?
 
 
+// ANOTHER NOTE. ALL GLOBAL VARIABLES WILL NOW BE PREFIXED with g_
+
+
 class pidController {
+
+  private:
+    dataObject inputFilter, outputFilter;
 
   public:
 
     // Constructor
-    pidController();
+    pidController(float input_filter_bias = IN_FILTER_BIAS, float output_filter_bias = OUT_FILTER_BIAS):
+      inputFilter(input_filter_bias, false),
+      outputFilter(output_filter_bias, false)
+    {
+
+    }
 
 
     void begin();
 
 
-    uint32_t sample_delay_uS;
-    uint32_t output_delay_uS;
-    uint32_t print_delay_mS;
-    uint32_t input_delay_mS;
+
+    // The most important variables, look after these
+    int16_t g_sensor_value;
+    int16_t g_setpoint;
+    int16_t g_output_value;
+    uint8_t g_last_output_value = 0;   // This one is constrained because it only ever holds the constrained value
+
+    int16_t g_current_error = 0;
+    int16_t g_previous_error = 0;
+
+
+    // Timing variables. I dont like these being here
+    uint32_t g_sample_delay_uS;
+    uint32_t g_output_delay_uS;
+    uint32_t g_print_delay_mS;
+    uint32_t g_input_delay_mS;
 
 
 
+
+    // I dont like this this will go. its messy
     sensorMinMax sensorCal;
 
-    int16_t sensor_value;
-    int16_t setpoint;
-
-    int16_t output_value;
-
-    uint8_t last_output_value = 0;   // This one is constrained because it only ever holds the constrained value
-
-    int16_t current_error = 0;
-    int16_t previous_error = 0;
 
 
-    int16_t average_error = 0;    // Past N samples NOT IMPLEMENTED YET
+    // These variables are not used yet? maybe. need to check.
 
-    int16_t output_swing;  // Not implemented yet
+    int16_t g_average_error = 0;    // Past N samples NOT IMPLEMENTED YET
+    int16_t g_output_swing;  // Not implemented yet
+
+
 
     //uint32_t dt = 1;             // loop interval time - seconds?
-    float dt = 1.0;                 // dt  = Loop interval time. dt = 1/SAMPLE_RATE
+    float g_dt = 1.0;                 // dt  = Loop interval time. dt = 1/SAMPLE_RATE < I DONT KNOW WHAT THIS REALLY DOES APART FROM IN PID CONTROLLER I is *dT, D is /dT. If I set it to 1 it works. **Shrug**
 
 
-    float P = 0;
-    float I = 0;
-    float D = 0;
+    float g_P = 0;                     // These will be pointless. I dont think they do anything can be specified locally instead of globally
+    float g_I = 0;
+    float g_D = 0;
 
+    // PID Controller gains. These are useful and there is a method to update them
+    float g_Kp = 0.6;     // If we start thinking of these values logically. P = total error, therefore Kp = 1 means the entire error value between 2 samples, will be "corrected" for in a single clock cycle. Lower numbers decrease overall filter responsiveness
+    float g_Ki = 0.01;
+    float g_Kd = 0.3;
 
-    float Kp = 0.6;     // If we start thinking of these values logically. P = total error, therefore Kp = 1 means the entire error value between 2 samples, will be "corrected" for in a single clock cycle. Lower numbers decrease overall filter responsiveness
-    float Ki = 0.01;
-    float Kd = 0.3;
-
-
-
-
-
+    // Here is the method to update PID controller gains, I told you it existed
+    void updateGain(float P_gain = 0.6, float I_gain = 0.01, float D_gain = 0.3);
 
 
 
+    // Dont think this structure is useful at all.
+    /*
+      struct pid {
+      float KP;
+      float KI;
+      float KD;
+      };
+    */
+
+
+    // Methods
+
+    // PUBLIC (for now)
+    void updateInput(int16_t input_value);
+
+    void updateSetpoint(int16_t new_setpoint);
+
+    // PRIVATE (FOR NOW)
+
+    int16_t constrainOutput(float PID_correction = 0.0, int16_t deadband = DEADBAND, int16_t current_output = 0);
+
+    // These make the data buttery smooth. Kind of. Might be worth investing in better filter algorithms, anyone got a fave?
     int16_t smoothInput(int16_t sensor_value);
-
     int16_t smoothOutput(int16_t output_value);
 
 
-    int16_t PIDcontroller(int16_t setpoint, int16_t sensor_value, int16_t current_output);
+    // This does the entire fun stuff, it outputs the final correction to the output signal, given the setpoint, the sensor reading, and the current output
+    int16_t PIDcontroller(int16_t setpoint, int16_t sensor_value, int16_t current_output); // These variable names need to change the F
 
 
 
-
-    float PIDgain(float P, float I, float D, float Kp, float Ki, float Kd);
-
-
-
-    int16_t averageError(int16_t latest_error);  // Calculate the average error over the last N samples
+    // This can be private method, only called from PIDcontroller?
+    // This takes the calculated P, I & D values and adds them together given the weighting provided
+    float PIDgain(float Pterm, float Iterm, float Dterm, float Pgain, float Igain, float Dgain);
 
 
 
-
-
-    void printOutput();
-
-    void plotOutput();
-
-    void plotHeader();
+    int16_t averageError(int16_t latest_error);  // Calculate the average error over the last N samples DOES NOTHING ATM
 
 
 
 
 
+    void printOutput();   // Does what it says, outputs some useful data to the Serial Monitor
 
-    uint16_t generateTest(uint16_t low_map, uint16_t high_map);
+    void plotOutput();       // Makes the serial output formatted for clear display on the Serial Plotter or other graphing software (CSV formatted)
+
+    void plotHeader();       // Prints a header for the serial plotter/ adds coloumn headings to the plotOutput(); method.
 
 
-    struct sensorMinMax sensorSelfCalibrate();
+
+
+
+
+    uint16_t generateTest(uint16_t low_map, uint16_t high_map);       // going to change this to make it function cleaner. Sets the output to a specific value to test sensor limits?
+
+
+    struct sensorMinMax sensorSelfCalibrate();      // Automatic Self Calibration function. Dont know if this really works hidden in the library, will rethink over time.
 
 
     // Constants
 
 
 
-
-    dataObject inputFilter(float filter_bias = IN_FILTER_BIAS);
-    dataObject outputFilter(float filter_bias = OUT_FILTER_BIAS);
+    // Methods to calculate delay times given a specific sample rate.
 
     uint32_t calculateSampleDelay(uint32_t sample_rate);
     uint32_t calculateOutputDelay(uint32_t sample_rate) ;
     uint32_t calculatePrintDelay(uint32_t print_rate) ;
     uint32_t calculateInputDelay(uint32_t input_rate);
 
-    autoDelay sampleDelay;
-    autoDelay printDelay;
-    autoDelay inputDelay;
-    autoDelay outputDelay;
 
 
 

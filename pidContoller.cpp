@@ -36,15 +36,16 @@
 #include "pidController.h"
 
 
-pidController::pidController() {
+//pidController::pidController(float input_filter_bias, float output_filter_bias) {
+//}
 
-}
 
+// Sets up timings - later interrupts
 void pidController::begin() {
   Serial.begin(115200);
   //  pinMode(OUTPUT_PIN, OUTPUT);
   //  pinMode(INDICATOR_PIN, OUTPUT);
-  sample_delay_uS = pidController::calculateSampleDelay(SAMPLE_RATE);
+  g_sample_delay_uS = pidController::calculateSampleDelay(SAMPLE_RATE);
   // Serial.print("sample_delay_uS = ");
   // Serial.println(sample_delay_uS, 10);
   // dt = 1/float(sample_delay_uS);
@@ -53,9 +54,9 @@ void pidController::begin() {
   //  Serial.print("dT = ");
   //  Serial.println(dt, 7);
   // delay(2000);
-  output_delay_uS = pidController::calculateOutputDelay(OUTPUT_UPDATE);
-  print_delay_mS = pidController::calculatePrintDelay(PRINT_RATE);
-  input_delay_mS = pidController::calculateInputDelay(INPUT_SAMPLERATE);
+  g_output_delay_uS = pidController::calculateOutputDelay(OUTPUT_UPDATE);
+  g_print_delay_mS = pidController::calculatePrintDelay(PRINT_RATE);
+  g_input_delay_mS = pidController::calculateInputDelay(INPUT_SAMPLERATE);
   //  sensorCal = sensorSelfCalibrate();
   // Serial.print(sensorCal.Smin);
   // Serial.print("  :  ");
@@ -65,52 +66,80 @@ void pidController::begin() {
 
 
 
+void pidController::updateInput(int16_t input_value) {
+  g_sensor_value = pidController::smoothInput(input_value);
+}
+
+void pidController::updateSetpoint(int16_t new_setpoint) {
+  g_setpoint = new_setpoint;
+}
+
+
+// THis can be private
+
 int16_t pidController::smoothInput(int16_t sensor_value) {
- // sensor_value = inputFilter.recursiveFilter((sensor_value));
+  sensor_value = inputFilter.recursiveFilter((sensor_value));
   return sensor_value;
 }
 
 int16_t pidController::smoothOutput(int16_t output_value) {
-//  output_value = outputFilter.recursiveFilter(output_value);
+  output_value = outputFilter.recursiveFilter(output_value);
   return output_value;
+}
+
+void pidController::updateGain(float P_gain, float I_gain, float D_gain) {
+  g_Kp = P_gain;
+  g_Ki = I_gain;
+  g_Kd = D_gain;
 }
 
 
 int16_t pidController::PIDcontroller(int16_t setpoint, int16_t sensor_value, int16_t current_output) {
   // PID Functions
-  current_error = setpoint - sensor_value;    // Current error is = proportional
+  g_current_error = setpoint - sensor_value;    // Current error is = proportional
+
   // Calculate seperate P, I & D errors (Do not confuse with P&ID!)
-  P = current_error;
-  I = (I + current_error) * dt;
-  D = (current_error - previous_error) / dt;
+ // float P, I, D = 0;                                                                  // These variables DO need to be global - well at least the I term
+
+  g_P = g_current_error;
+  g_I = (g_I + g_current_error) * g_dt;
+  g_D = (g_current_error - g_previous_error) / g_dt;
 
   // This function should really be split here
 
-  float PID_correction = pidController::PIDgain(P, I, D, Kp, Ki, Kd);    // Each error measurement is multiplied by the gain for each channel then added.
+  float PID_correction = pidController::PIDgain(g_P, g_I, g_D, g_Kp, g_Ki, g_Kd);    // Each error measurement is multiplied by the gain for each channel then added.
 
-  // Round Output Value to an int for output
-  if (P >= DEADBAND || P <= DEADBAND) {
-    output_value = output_value + int(PID_correction + 0.5);        //Origional Line
-    output_swing = output_value - last_output_value;                // Not used currently, but might be useful to limit max swing per sample?
-    output_value = constrain(output_value, 0 , 255);
-    output_value = pidController::smoothOutput(output_value);
-  }
+  g_output_value = pidController::constrainOutput(PID_correction, DEADBAND, current_output);
 
-  last_output_value = output_value;
-  previous_error = current_error;
-  return output_value;
+  g_last_output_value = g_output_value;                    // Not sure this line is actually used in anything
+
+  g_previous_error = g_current_error;         // previous error is used to calculate D term.
+
+  return g_output_value;                     //Yes this needs a return, this library only does maths, final value must be passed to other functions, however software also has a global output_value
 }
 
 
 
 
-float pidController::PIDgain(float P, float I, float D, float Kp, float Ki, float Kd) {
-  float pid = (P * Kp) + (I * Ki) + (D * Kd);
+float pidController::PIDgain(float Pterm, float Iterm, float Dterm, float Pgain, float Igain, float Dgain) {
+  float pid = (Pterm * Pgain) + (Iterm * Igain) + (Dterm * Dgain);
   // Serial.println(pid);
   // Next Line Added
   return pid;
 }
 
+
+
+int16_t pidController::constrainOutput(float pid_correction, int16_t deadband, int16_t current_output) {
+  // Round Output Value to an int for output
+  if (g_current_error >= deadband || g_current_error <= deadband) {
+    current_output = current_output + int(pid_correction + 0.5);        //Origional Line round pid_correction tand cast to int
+    current_output = constrain(current_output, 0 , 255);                   // Constrain to physical output limits - these limits should be adjustable via API!
+    current_output = pidController::smoothOutput(current_output);
+    g_output_swing = current_output - g_last_output_value;                // Not used currently, but might be useful to limit max swing per sample?
+  }
+  return current_output;
+}
 
 
 int16_t pidController::averageError(int16_t latest_error) {   // Calculate the average error over the last N samples
@@ -121,13 +150,13 @@ int16_t pidController::averageError(int16_t latest_error) {   // Calculate the a
 
 void pidController::printOutput() {
   char buffer[64];
-  sprintf(buffer, "setpoint: [%i], sensor: [%i], error_c:[%i], error_p[%i], out[%i] ", setpoint, sensor_value, current_error, previous_error, output_value );
+  sprintf(buffer, "setpoint: [%i], sensor: [%i], error_c:[%i], error_p[%i], out[%i] ", g_setpoint, g_sensor_value, g_current_error, g_previous_error, g_output_value );
   Serial.println(buffer);
 }
 
 void pidController::plotOutput() {
   char buffer[64];
-  sprintf(buffer, "%i, %i, %i, %i", setpoint, sensor_value, current_error, output_value);
+  sprintf(buffer, "%i, %i, %i, %i", g_setpoint, g_sensor_value, g_current_error, g_output_value);
   //  sprintf(buffer, "%i, %i, %i, %i, %i", setpoint, sensor_value, P, I, D);
   //sprintf(buffer, "%i, %i, %i, %i, %i", setpoint, sensor_value, current_error, previous_error, output_value );
   Serial.println(buffer);
@@ -158,14 +187,14 @@ uint16_t pidController::generateTest(uint16_t low_map, uint16_t high_map) {
 sensorMinMax pidController::sensorSelfCalibrate() {
   sensorMinMax calibration;
   if (SELF_CALIBRATION) {
-  //  updateOutput(OUTPUT_MIN);
+    //  updateOutput(OUTPUT_MIN);
     delay(1000); // allow input to stabalise
     // Averaging Script would be best
-   // int16_t Smin = readSensor();
-//    updateOutput(OUTPUT_MAX);
+    // int16_t Smin = readSensor();
+    //    updateOutput(OUTPUT_MAX);
     delay(1000);
- //   int16_t Smax = readSensor();
-  //  calibration = {Smin, Smax};
+    //   int16_t Smax = readSensor();
+    //  calibration = {Smin, Smax};
   } else {
     calibration = {SENSOR_MIN, SENSOR_MAX};            // If not Self calibration, use manually provided values
   }

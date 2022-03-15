@@ -1,7 +1,7 @@
 /* ~~~~~~~~~~~~~ dataObject.h ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
    Library to implement data sorting & filtering algorithms
-      
+
    Data Filtering Algorithms:
 
    - Recursive Filter
@@ -35,6 +35,20 @@
 
 #define DATA_ARRAY_SIZE 128
 
+
+// 15/03/2022 GETTING WEIRD COMPILER WARNINGS
+/*
+   'float dataObject::w' [-Wreorder]
+
+     float w;             // bias value for recursive filter
+
+
+
+*/
+// SOLUTION MAY BE:?
+//The key takeaway: initializer list members "should appear in the same order as they appear in the class definition".
+// THINK THAT WORKED
+
 class dataObject
 {
 
@@ -51,8 +65,8 @@ class dataObject
 
     int32_t recursiveFilter(int32_t Xn);
 
- //   int16_t averageMode(int16_t *data_array);
-    
+    //   int16_t averageMode(int16_t *data_array);
+
 
     // Constants
 
@@ -62,15 +76,17 @@ class dataObject
     // Variables
 
 
- //   int16_t data_array[DATA_ARRAY_SIZE];    // Used for averaging methods
+    //   int16_t data_array[DATA_ARRAY_SIZE];    // Used for averaging methods
 
   private:
 
     int32_t Ypre;   //Y(n-1) Variable used for recursive filter
 
+    bool printSerial;
+
     float w;             // bias value for recursive filter
 
-    bool printSerial;
+
 
 };
 
