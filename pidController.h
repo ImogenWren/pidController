@@ -83,8 +83,8 @@
 #endif
 
 
-
-#include <dataObject.h>   // Used for input & output filtering
+#include "globals.h"
+#include "dataObject.h"   // Used for input & output filtering
 #include <autoDelay.h>
 
 
@@ -104,7 +104,7 @@
 int16_t error_history[HISTORIC_SAMPLES];
 #define MAX_DEFLECTION 50  // swing changes in output limited by this amount
 
-
+#define SELF_CALIBRATION false
 
 
 #define SAMPLE_RATE 1000       // Sample rate for measured_value (Hz)
@@ -144,26 +144,27 @@ int16_t error_history[HISTORIC_SAMPLES];
 class pidController {
 
   public:
-  
+
     // Constructor
     pidController();
 
-    
+
     void begin();
 
 
-
+    uint32_t sample_delay_uS;
     uint32_t output_delay_uS;
-    uint32_t  print_delay_mS;
+    uint32_t print_delay_mS;
     uint32_t input_delay_mS;
 
-    struct sensorMinMax {
-      int16_t Smin;
-      int16_t Smax;
-    };
+
 
     sensorMinMax sensorCal;
 
+    int16_t sensor_value;
+    int16_t setpoint;
+
+    int16_t output_value;
 
     uint8_t last_output_value = 0;   // This one is constrained because it only ever holds the constrained value
 
@@ -172,6 +173,8 @@ class pidController {
 
 
     int16_t average_error = 0;    // Past N samples NOT IMPLEMENTED YET
+
+    int16_t output_swing;  // Not implemented yet
 
     //uint32_t dt = 1;             // loop interval time - seconds?
     float dt = 1.0;                 // dt  = Loop interval time. dt = 1/SAMPLE_RATE
@@ -227,7 +230,7 @@ class pidController {
     uint16_t generateTest(uint16_t low_map, uint16_t high_map);
 
 
-
+   struct sensorMinMax sensorSelfCalibrate();
 
 
     // Constants
@@ -235,20 +238,21 @@ class pidController {
 
 
 
-
-
-
-  private:
-
     dataObject inputFilter(float filter_bias = IN_FILTER_BIAS);
     dataObject outputFilter(float filter_bias = OUT_FILTER_BIAS);
-
-
 
     uint32_t calculateSampleDelay(uint32_t sample_rate);
     uint32_t calculateOutputDelay(uint32_t sample_rate) ;
     uint32_t calculatePrintDelay(uint32_t print_rate) ;
     uint32_t calculateInputDelay(uint32_t input_rate);
+
+
+
+  private:
+
+
+
+
 
 
 };

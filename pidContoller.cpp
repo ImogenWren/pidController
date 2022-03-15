@@ -36,8 +36,8 @@
 #include "pidController.h"
 
 
-pidController::pidController(){
-  
+pidController::pidController() {
+
 }
 
 void pidController::begin() {
@@ -66,12 +66,12 @@ void pidController::begin() {
 
 
 int16_t pidController::smoothInput(int16_t sensor_value) {
-  sensor_value = inputFilter.recursiveFilter(sensor_value)
-                 return sensor_value;
+ // sensor_value = inputFilter.recursiveFilter((sensor_value));
+  return sensor_value;
 }
 
 int16_t pidController::smoothOutput(int16_t output_value) {
-  output_value = outputFilter.recursiveFilter(output_value);
+//  output_value = outputFilter.recursiveFilter(output_value);
   return output_value;
 }
 
@@ -84,8 +84,8 @@ int16_t pidController::PIDcontroller(int16_t setpoint, int16_t sensor_value, int
   I = (I + current_error) * dt;
   D = (current_error - previous_error) / dt;
 
-// This function should really be split here
-  
+  // This function should really be split here
+
   float PID_correction = pidController::PIDgain(P, I, D, Kp, Ki, Kd);    // Each error measurement is multiplied by the gain for each channel then added.
 
   // Round Output Value to an int for output
@@ -155,6 +155,23 @@ uint16_t pidController::generateTest(uint16_t low_map, uint16_t high_map) {
 
 
 
+sensorMinMax pidController::sensorSelfCalibrate() {
+  sensorMinMax calibration;
+  if (SELF_CALIBRATION) {
+  //  updateOutput(OUTPUT_MIN);
+    delay(1000); // allow input to stabalise
+    // Averaging Script would be best
+   // int16_t Smin = readSensor();
+//    updateOutput(OUTPUT_MAX);
+    delay(1000);
+ //   int16_t Smax = readSensor();
+  //  calibration = {Smin, Smax};
+  } else {
+    calibration = {SENSOR_MIN, SENSOR_MAX};            // If not Self calibration, use manually provided values
+  }
+  return calibration;
+}
+
 
 
 
@@ -162,22 +179,22 @@ uint16_t pidController::generateTest(uint16_t low_map, uint16_t high_map) {
 
 
 uint32_t pidController::calculateSampleDelay(uint32_t sample_rate) {
-  uint32_t sample_delay_uS = 1000000 / sample_rate;
-  return sample_delay_uS;
+  uint32_t sample_uS = 1000000 / sample_rate;
+  return sample_uS;
 }
 
 uint32_t pidController::calculateOutputDelay(uint32_t sample_rate) {
-  uint32_t output_delay_uS = 1000000 / sample_rate;
-  return output_delay_uS;
+  uint32_t output = 1000000 / sample_rate;
+  return output;
 }
 
 uint32_t pidController::calculatePrintDelay(uint32_t print_rate) {
-  uint32_t print_delay_mS = 1000 / print_rate;
-  return print_delay_mS;
+  uint32_t print_mS = 1000 / print_rate;
+  return print_mS;
 }
 
 
 uint32_t pidController::calculateInputDelay(uint32_t input_rate) {
-  uint32_t input_delay_mS = 1000 / input_rate;
-  return input_delay_mS;
+  uint32_t input_mS = 1000 / input_rate;
+  return input_mS;
 }

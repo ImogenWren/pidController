@@ -48,7 +48,13 @@
 
 
 
-pidController PID();
+pidController PID;
+
+
+
+
+
+
 
 
 
@@ -58,7 +64,7 @@ void setup() {
   pinMode(OUTPUT_PIN, OUTPUT);
   pinMode(INDICATOR_PIN, OUTPUT);
   PID.begin();
-  sensorMinMax = sensorSelfCalibrate();
+  PID.sensorCal = PID.sensorSelfCalibrate();
   //  delay(2000);
 }
 
@@ -83,16 +89,11 @@ autoDelay inputDelay;
 autoDelay outputDelay;
 
 // Variables
-uint32_t sample_delay_uS;
-uint32_t output_delay_uS;
-uint32_t print_delay_mS;
-uint32_t input_delay_mS;
-
 
 void loop() {
 
   // Debugging/Monitoring Output
-  if (printDelay.millisDelay(print_delay_mS)) {
+  if (printDelay.millisDelay(PID.print_delay_mS)) {
     //printOutput();
     PID.plotOutput();
   }
@@ -101,13 +102,13 @@ void loop() {
 
   // Input Functions
 
-  if (sampleDelay.microsDelay(sample_delay_uS)) {
+  if (sampleDelay.microsDelay(PID.sample_delay_uS)) {
     sensor_value = readSensor();
-    sensor_value = PID.smoothInput(sensorValue);
+    sensor_value = PID.smoothInput(sensor_value);
   }
 
 
-  if (inputDelay.millisDelay(input_delay_mS)) {
+  if (inputDelay.millisDelay(PID.input_delay_mS)) {
     setpoint = generateSetpoint();
     // setpoint = dataLib.recursiveFilter(setpoint);   // Set point doesnt need filtering for now
   }
@@ -129,23 +130,6 @@ void loop() {
 
 
 
-PID.sensorMinMax sensorSelfCalibrate() {
-  sensorMinMax calibration;
-  if (SELF_CALIBRATION) {
-    updateOutput(OUTPUT_MIN);
-    delay(1000); // allow input to stabalise
-    // Averaging Script would be best
-    int16_t Smin = readSensor();
-    updateOutput(OUTPUT_MAX);
-    delay(1000);
-    int16_t Smax = readSensor();
-    calibration = {Smin, Smax};
-  } else {
-    calibration = {SENSOR_MIN, SENSOR_MAX};            // If not Self calibration, use manually provided values
-  }
-  return calibration;
-}
-
 
 
 uint16_t readSensor() {
@@ -159,7 +143,7 @@ uint16_t readSensor() {
 
 uint16_t generateSetpoint() {
   uint16_t setpoint = analogRead(SETPOINT_PIN);
-  setpoint = map(setpoint, 0, 1024, sensorCal.Smin + MIN_BUFFER, sensorCal.Smax - MAX_BUFFER);
+  setpoint = map(setpoint, 0, 1024, PID.sensorCal.Smin + MIN_BUFFER, PID.sensorCal.Smax - MAX_BUFFER);
   return setpoint;
 }
 
