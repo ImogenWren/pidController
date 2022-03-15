@@ -100,8 +100,8 @@
 // Variables/Settings
 
 // Neither of these are used yet
-#define HISTORIC_SAMPLES 100
-int16_t error_history[HISTORIC_SAMPLES];
+//#define HISTORIC_SAMPLES 100
+//int16_t error_history[HISTORIC_SAMPLES];
 #define MAX_DEFLECTION 50  // swing changes in output limited by this amount
 
 #define SELF_CALIBRATION false
@@ -133,7 +133,7 @@ int16_t error_history[HISTORIC_SAMPLES];
 
 #define IN_FILTER_BIAS 0.01     // Lots of filtering on input makes it smooth and easy for the PID controller to work  // 0 to 1: Higher numbers = faster response less filtering // Lower numbers = Slower response, more filtering
 //#define OUT_FILTER_BIAS 0.7
-#define OUT_FILTER_BIAS 1.0
+#define OUT_FILTER_BIAS 0.7
 
 // Low to no filtering on output makes it extremly fas tto react, however this wouldnt work as easily on a physical system with inertia or structural limitations etc.
 
@@ -230,7 +230,7 @@ class pidController {
     uint16_t generateTest(uint16_t low_map, uint16_t high_map);
 
 
-   struct sensorMinMax sensorSelfCalibrate();
+    struct sensorMinMax sensorSelfCalibrate();
 
 
     // Constants
@@ -245,6 +245,11 @@ class pidController {
     uint32_t calculateOutputDelay(uint32_t sample_rate) ;
     uint32_t calculatePrintDelay(uint32_t print_rate) ;
     uint32_t calculateInputDelay(uint32_t input_rate);
+
+    autoDelay sampleDelay;
+    autoDelay printDelay;
+    autoDelay inputDelay;
+    autoDelay outputDelay;
 
 
 

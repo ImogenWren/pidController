@@ -94,7 +94,7 @@ void loop() {
 
   // Debugging/Monitoring Output
   if (printDelay.millisDelay(PID.print_delay_mS)) {
-    //printOutput();
+    //  PID.printOutput();
     PID.plotOutput();
   }
 
@@ -103,26 +103,26 @@ void loop() {
   // Input Functions
 
   if (sampleDelay.microsDelay(PID.sample_delay_uS)) {
-    sensor_value = readSensor();
-    sensor_value = PID.smoothInput(sensor_value);
+    PID.sensor_value = readSensor();
+    PID.sensor_value = PID.smoothInput(sensor_value);
   }
 
 
   if (inputDelay.millisDelay(PID.input_delay_mS)) {
-    setpoint = generateSetpoint();
-    // setpoint = dataLib.recursiveFilter(setpoint);   // Set point doesnt need filtering for now
+    PID.setpoint = generateSetpoint();
+    // PID.setpoint = PID.dataLib.recursiveFilter(PID.setpoint);   // Set point doesnt need filtering for now
   }
 
 
 
-  output_value = PID.PIDcontroller(setpoint, sensor_value, output_value);
+  PID.output_value = PID.PIDcontroller(PID.setpoint, PID.sensor_value, PID.output_value);
 
 
   // Output Functions
 
   // Physical Output
   if (outputDelay.microsDelay(PID.output_delay_uS)) {
-    updateOutput(output_value);
+    updateOutput(PID.output_value);
   }
   // Test output for sensor calibration
   //updateOutput(generateTest(0, 255));
