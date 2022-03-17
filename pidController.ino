@@ -46,7 +46,7 @@
 #include "dataObject.h"
 #include "pidController.h"
 
-
+dataObject average;
 
 pidController PID;
 
@@ -73,6 +73,8 @@ void setup() {
   PID.updateGain(P_GAIN, I_GAIN, D_GAIN);
   // PID.sensorCal = PID.sensorSelfCalibrate(); < Some thought needs to go into this one, maybe calibrateSensorLOW(LOCAL_SENSOR_READING, LOW_BUFFER); and same for calSensorHIGH
   //  delay(2000);
+
+  plotGenericHeader("Setpoint, Sensor, Error, Output, Average_Error");
 }
 
 
@@ -89,6 +91,8 @@ uint16_t  setpoint;
 
 int32_t output_swing;
 
+int16_t error_value;
+int16_t average_error;
 
 // Variables
 
@@ -112,12 +116,19 @@ void loop() {
 
 
   PID.g_output_value = PID.PIDcontroller(PID.g_setpoint, PID.g_sensor_value, PID.g_output_value);
+  error_value = PID.g_setpoint - PID.g_sensor_value;
+  average.addDataPoint(error_value);
+  average_error = average.calcMean();
 
 
   // Output Functions
 
   // Physical Output
   if (outputDelay.microsDelay(PID.g_output_delay_uS)) {
+    PID.g_output_value = PID.PIDcontroller(PID.g_setpoint, PID.g_sensor_value, PID.g_output_value);
+    error_value = PID.g_setpoint - PID.g_sensor_value;
+    average.addDataPoint(error_value);
+    average_error = average.calcMean();
     updateOutput(PID.g_output_value);
   }
   // Test output for sensor calibration
@@ -128,18 +139,34 @@ void loop() {
   // Debugging/Monitoring Output
   if (printDelay.millisDelay(PID.g_print_delay_mS)) {
     //  PID.printOutput();
-    PID.plotOutput();
+    // PID.plotOutput();
+    plotGenericData(PID.g_setpoint, PID.g_sensor_value, PID.g_output_value, error_value, average_error);
   }
 }
 
 
 
+void plotGenericHeader(char header_string[46]) {
+  char buffer[64];
+  sprintf(buffer, "%s", header_string);
+  Serial.println(buffer);
+}
 
+void plotGenericData(int16_t dataZero, int16_t dataOne, int16_t dataTwo, int16_t dataThree, int16_t dataFour) {
+  char buffer[64];
+  sprintf(buffer, "%i, %i, %i, %i, %i, ", dataZero, dataOne, dataTwo, dataThree, dataFour);
+  Serial.println(buffer);
+}
 
 int16_t readSensor() {
   sensor_value = analogRead(ADC_PIN);
   return sensor_value;
 }
+
+
+#define S_MIN  100
+#define S_MAX  800
+
 
 #define MIN_BUFFER 20   // Lower range headroom for target sensor value
 #define MAX_BUFFER 120   // upper range headroom for target sensor value
@@ -147,7 +174,8 @@ int16_t readSensor() {
 
 int16_t generateSetpoint() {
   int16_t setpoint = analogRead(SETPOINT_PIN);
-  setpoint = map(setpoint, 0, 1024, PID.sensorCal.Smin + MIN_BUFFER, PID.sensorCal.Smax - MAX_BUFFER);
+  // setpoint = map(setpoint, 0, 1024, PID.sensorCal.Smin + MIN_BUFFER, PID.sensorCal.Smax - MAX_BUFFER);  // Broken for now but can be fixed
+  setpoint = map(setpoint, 0, 1024,  S_MIN, S_MAX);
   return setpoint;
 }
 
