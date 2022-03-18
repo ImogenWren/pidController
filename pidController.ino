@@ -62,7 +62,7 @@ autoDelay outputDelay;
 #define I_GAIN 0.01
 #define D_GAIN 0.3
 
-
+dataObject
 
 
 void setup() {
@@ -110,6 +110,13 @@ void loop() {
   }
 
 
+// Function here to calculate average error over the past N samples
+
+ data_array[DATA_ARRAY_SIZE];    // Used for averaging methods
+
+
+
+
 
   PID.g_output_value = PID.PIDcontroller(PID.g_setpoint, PID.g_sensor_value, PID.g_output_value);
 
@@ -135,6 +142,7 @@ void loop() {
 
 
 
+// All hardware interactions done externally to library
 
 int16_t readSensor() {
   sensor_value = analogRead(ADC_PIN);

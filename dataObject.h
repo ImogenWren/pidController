@@ -65,7 +65,7 @@ class dataObject
 
     int32_t recursiveFilter(int32_t Xn);
 
-    //   int16_t averageMode(int16_t *data_array);
+    int16_t averageMode(int16_t *data_array);
 
 
     // Constants
@@ -76,7 +76,7 @@ class dataObject
     // Variables
 
 
-    //   int16_t data_array[DATA_ARRAY_SIZE];    // Used for averaging methods
+    int16_t data_array[DATA_ARRAY_SIZE];    // Used for averaging methods
 
   private:
 
