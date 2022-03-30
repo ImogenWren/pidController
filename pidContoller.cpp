@@ -61,7 +61,7 @@ void pidController::begin() {
   // Serial.print(sensorCal.Smin);
   // Serial.print("  :  ");
   // Serial.println(sensorCal.Smax);
-  pidController::plotHeader();
+//  pidController::plotHeader();
 }
 
 
@@ -71,7 +71,7 @@ void pidController::updateInput(int16_t input_value) {
 }
 
 void pidController::updateSetpoint(int16_t new_setpoint) {
-  g_setpoint = new_setpoint;
+  g_setpoint = new_setpoint;  
 }
 
 

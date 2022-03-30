@@ -115,12 +115,13 @@
 #define DEADBAND 0        // dead band value for hysterisis.
 
 
-
-
 #define SENSOR_MIN 100   // Measured for this specific sensor, ATM onlu used to LIMIT the SETPOINT to within a range the sensor can actually accomplish
 #define SENSOR_MAX 800   //
 // Measured sensor Min = 22
 // Measured sensor Max = 843
+
+
+
 
 #define OUTPUT_MIN 0       // OR use variables for self calibration
 #define OUTPUT_MAX 255

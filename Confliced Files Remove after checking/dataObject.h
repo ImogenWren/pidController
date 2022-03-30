@@ -35,6 +35,7 @@
 
 #define DATA_ARRAY_SIZE 128
 
+#define SAMPLE_HISTORY 128
 
 // 15/03/2022 GETTING WEIRD COMPILER WARNINGS
 /*
@@ -63,12 +64,29 @@ class dataObject
 
     void begin(uint32_t baudrate = 115200);    // Serial Comms
 
+    // Filter Variables
+
+    // Filter Methods
     int32_t recursiveFilter(int32_t Xn);
 
+<<<<<<< HEAD:Confliced Files Remove after checking/dataObject.h
     int16_t averageMode(int16_t *data_array);
+=======
+>>>>>>> 451141151f1813d7cd8f310da2ac9828d1971176:dataObject.h
 
+    //Averaging Variables
+    int16_t g_data_array[SAMPLE_HISTORY];
 
-    // Constants
+    // Averaging Methods
+    void addDataPoint(int16_t dataPoint);
+    int16_t returnMean(int16_t g_data_array[SAMPLE_HISTORY]);  // Takes Data From anywhere
+    int16_t calcMean();                                      // Uses global array
+
+    // Plotting and Printing Methods
+    void plotHeadings();
+    void plotMean(int16_t last_data_point, int16_t rolling_mean);
+    void printArray(int16_t dataArray[SAMPLE_HISTORY]);
+
 
 
 
@@ -78,7 +96,7 @@ class dataObject
 
     int16_t data_array[DATA_ARRAY_SIZE];    // Used for averaging methods
 
-  private:
+    private:
 
     int32_t Ypre;   //Y(n-1) Variable used for recursive filter
 
