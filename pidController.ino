@@ -159,15 +159,15 @@ void plotGenericHeader(char header_string[46]) {
   Serial.println(buffer);
 }
 
-<<<<<<< HEAD
+//<<<<<<< HEAD
 // All hardware interactions done externally to library
-=======
+//=======
 void plotGenericData(int16_t dataZero, int16_t dataOne, int16_t dataTwo, int16_t dataThree, int16_t dataFour) {
   char buffer[64];
   sprintf(buffer, "%i, %i, %i, %i, %i, ", dataZero, dataOne, dataTwo, dataThree, dataFour);
   Serial.println(buffer);
 }
->>>>>>> 451141151f1813d7cd8f310da2ac9828d1971176
+//
 
 int16_t readSensor() {
   sensor_value = analogRead(ADC_PIN);

@@ -69,10 +69,10 @@ class dataObject
     // Filter Methods
     int32_t recursiveFilter(int32_t Xn);
 
-<<<<<<< HEAD:Confliced Files Remove after checking/dataObject.h
+//<<<<<<< HEAD:Confliced Files Remove after checking/dataObject.h
     int16_t averageMode(int16_t *data_array);
-=======
->>>>>>> 451141151f1813d7cd8f310da2ac9828d1971176:dataObject.h
+//=======
+//>>>>>>> 451141151f1813d7cd8f310da2ac9828d1971176:dataObject.h
 
     //Averaging Variables
     int16_t g_data_array[SAMPLE_HISTORY];
