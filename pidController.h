@@ -145,6 +145,12 @@
 // ANOTHER NOTE. ALL GLOBAL VARIABLES WILL NOW BE PREFIXED with g_
 
 
+typedef enum {
+  ANALOG_OUTPUT,
+  BOOL_OUTPUT
+} digitalOP;
+
+
 class pidController {
 
   private:
@@ -157,8 +163,12 @@ class pidController {
       inputFilter(input_filter_bias, false),
       outputFilter(output_filter_bias, false)
     {
-
     }
+
+    pidController()
+    {
+
+    };
 
 
     void begin();
