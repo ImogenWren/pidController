@@ -173,6 +173,10 @@ class pidController {
 
     void begin();
 
+    int16_t output_max;
+    int16_t output_min;
+    int16_t maximum_deflection;
+    int16_t deadband;
 
 
     // The most important variables, look after these
