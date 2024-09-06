@@ -1,351 +1,90 @@
+/*    PID Controller
 
+        Implementing a bare bones PID Controller from the ground up
 
-
-/*    # PID Controller
-
-        _Implementing a bare bones PID Controller from the ground up_
-
-        **Imogen Wren**
+        Imogen Wren
 
         27/02/2022
 
-  ## What is a PID Controller?
-
-        A proportional feedback controller that aims to reduce the error between a measured value and a target value
-
-  _What is PID?_
-
-  ### ___P___ Proportional tuning:
-  _involves correcting a target proportional to the difference.
-  Thus, the target value is never achieved because as the difference approaches zero,
-  so too does the applied correction._
-
-  ### ___I___ Integral tuning:
-  _attempts to remedy this by effectively cumulating the
-  error result from the "P" action to increase the correction factor.
-  For example, if the oven remained below temperature,
-  “I” would act to increase the head delivered.
-  However, rather than stop heating when the target is reached,
-  "I" attempts to drive the cumulative error to zero, resulting in an overshoot._
-
-  ### ___D___ Derivative tuning:
-  _attempts to minimize this overshoot by slowing the correction factor applied as the target is approached._
-
-
-  ## The Maths
-  #### P = current_error;
-
-     i.e current_error = setpoint - sensor_reading
-
-  Example: setpoint = 100, sensor_reading = 120
-
-          -20 = 100 -120
-
-   therefore P = -20
-
-
-  ####  I = (I + current_error) * dt;
-
-  iteration 1, I = 0
-
-  I = (0 + -20) * dt
-  I = -20
-
-
-  #### D = (current_error - previous_error) / dt;
-
-  D = -20 - (-10) / dt
-
-  This doesn't actually tell us much, but I think it was worth something.
-
-  ## Full Algorithm:
-
-  P = setpoint - sensor_reading
-  I = (I + P) * dt
-  D = (P - previous_P) / dt
-
-  PID_error_correction = P*Kp + I*Ki + D*Kd
-
-  NEW_OUTPUT = old_output + PID_error_correction
-
 */
 
-
-
+#pragma once
 
 #ifndef pidController_h
 #define pidController_h
 
-#if (ARDUINO >=100)
+#if (ARDUINO >= 100)
 #include <Arduino.h>
 #else
 #include <wProgram.h>
 #endif
 
 
-#include "globals.h"
-#include "dataObject.h"   // Used for input & output filtering
-#include <autoDelay.h>
 
-
-
-// Hardware
-
-#define ADC_PIN A0                      // sensor
-#define SETPOINT_PIN A7                 // User Control
-#define OUTPUT_PIN 9                    // Output
-#define INDICATOR_PIN 3                 // User Indication
-#define ANALOG_TEST A3                  // User Test Input/Control
-
-// Variables/Settings
-
-// Neither of these are used yet
-//#define HISTORIC_SAMPLES 100
-//int16_t error_history[HISTORIC_SAMPLES];
-#define MAX_DEFLECTION 50  // swing changes in output limited by this amount
-
-#define SELF_CALIBRATION false
-
-
-#define SAMPLE_RATE 1000       // Sample rate for measured_value (Hz)
-#define INPUT_SAMPLERATE 1000      // sample rate for User inputs (Hz)
-#define OUTPUT_UPDATE 1000      // Rate for output updates (Hz)
-#define PRINT_RATE 1000           // Rate serial print data is printed (Hz)
-
-#define DEADBAND 0        // dead band value for hysterisis.
-
-
-#define SENSOR_MIN 100   // Measured for this specific sensor, ATM onlu used to LIMIT the SETPOINT to within a range the sensor can actually accomplish
-#define SENSOR_MAX 800   //
-// Measured sensor Min = 22
-// Measured sensor Max = 843
-
-
-
-
-#define OUTPUT_MIN 0       // OR use variables for self calibration
-#define OUTPUT_MAX 255
-
-//#define SELF_CALIBRATION true
-
-
-
-//sensorMinMax sensorCal;  // global
-
-#define IN_FILTER_BIAS 0.01     // Lots of filtering on input makes it smooth and easy for the PID controller to work  // 0 to 1: Higher numbers = faster response less filtering // Lower numbers = Slower response, more filtering
-//#define OUT_FILTER_BIAS 0.7
-#define OUT_FILTER_BIAS 0.7
-
-// Low to no filtering on output makes it extremly fas tto react, however this wouldnt work as easily on a physical system with inertia or structural limitations etc.
-
-
-// Just a thought. Instead of adding all of the sensor reads to this library, it should be maths only?
-
-
-// ANOTHER NOTE. ALL GLOBAL VARIABLES WILL NOW BE PREFIXED with g_
 
 
 class pidController {
+  // Constructor
 
-  private:
-    dataObject inputFilter, outputFilter;
+public:
 
-  public:
+  pidController();
 
-    // Constructor
-    pidController(float input_filter_bias = IN_FILTER_BIAS, float output_filter_bias = OUT_FILTER_BIAS):
-      inputFilter(input_filter_bias, false),
-      outputFilter(output_filter_bias, false)
-    {
+  // global vars
 
-    }
+//  int16_t setpoint_val;
+ // int16_t sensor_val;
+  float error_val;  // setpoint - current_val
+  int16_t previous_error;
 
+  int16_t control_val = 0;  // for bool o/p negative = off, positive = on
 
-    void begin();
+  int16_t control_min = -32768;
+  int16_t control_max =  32767;
 
+  uint32_t current_sampleTime_mS;
+  uint32_t previous_sampleTime_mS = 0;
 
+  uint32_t dt_mS = 1000;  // current_mS - last_mS
+  float dt_S = 1.0;
 
-    // The most important variables, look after these
-    int16_t g_sensor_value;
-    int16_t g_setpoint;
-    int16_t g_output_value;
-    uint8_t g_last_output_value = 0;   // This one is constrained because it only ever holds the constrained value
+  float P = 0;
+  float I = 0;
+  float D = 0;
 
-    int16_t g_current_error = 0;
-    int16_t g_previous_error = 0;
+  float Kp = 1.0;  // Proportional Gain
+  float Ki = 0.0;  // Integral Gain
+  float Kd = 0.0;  // Derivative Gain
 
+  int16_t deadband; // define a range of values over which PID control is ignored and last state is maintained
 
-    // Timing variables. I dont like these being here
-    uint32_t g_sample_delay_uS;
-    uint32_t g_output_delay_uS;
-    uint32_t g_print_delay_mS;
-    uint32_t g_input_delay_mS;
-
-
-
-
-    // I dont like this this will go. its messy
-    sensorMinMax sensorCal;
-
-
-
-    // These variables are not used yet? maybe. need to check.
-
-    int16_t g_average_error = 0;    // Past N samples NOT IMPLEMENTED YET
-    int16_t g_output_swing;  // Not implemented yet
-
-
-
-    //uint32_t dt = 1;             // loop interval time - seconds?
-    float g_dt = 1.0;                 // dt  = Loop interval time. dt = 1/SAMPLE_RATE < I DONT KNOW WHAT THIS REALLY DOES APART FROM IN PID CONTROLLER I is *dT, D is /dT. If I set it to 1 it works. **Shrug**
-
-
-    float g_P = 0;                     // These will be pointless. I dont think they do anything can be specified locally instead of globally
-    float g_I = 0;
-    float g_D = 0;
-
-    // PID Controller gains. These are useful and there is a method to update them
-    float g_Kp = 0.6;     // If we start thinking of these values logically. P = total error, therefore Kp = 1 means the entire error value between 2 samples, will be "corrected" for in a single clock cycle. Lower numbers decrease overall filter responsiveness
-    float g_Ki = 0.01;
-    float g_Kd = 0.3;
-
-    // Here is the method to update PID controller gains, I told you it existed
-    void updateGain(float P_gain = 0.6, float I_gain = 0.01, float D_gain = 0.3);
-
-
-
-    // Dont think this structure is useful at all.
-    /*
-      struct pid {
-      float KP;
-      float KI;
-      float KD;
-      };
-    */
-
-
-    // Methods
-
-    // PUBLIC (for now)
-    void updateInput(int16_t input_value);
-
-    void updateSetpoint(int16_t new_setpoint);
-
-    // PRIVATE (FOR NOW)
-
-    int16_t constrainOutput(float PID_correction = 0.0, int16_t deadband = DEADBAND, int16_t current_output = 0);
-
-    // These make the data buttery smooth. Kind of. Might be worth investing in better filter algorithms, anyone got a fave?
-    int16_t smoothInput(int16_t sensor_value);
-    int16_t smoothOutput(int16_t output_value);
-
-
-    // This does the entire fun stuff, it outputs the final correction to the output signal, given the setpoint, the sensor reading, and the current output
-    int16_t PIDcontroller(int16_t setpoint, int16_t sensor_value, int16_t current_output); // These variable names need to change the F
-
-
-
-    // This can be private method, only called from PIDcontroller?
-    // This takes the calculated P, I & D values and adds them together given the weighting provided
-    float PIDgain(float Pterm, float Iterm, float Dterm, float Pgain, float Igain, float Dgain);
-
-
-
-    int16_t averageError(int16_t latest_error);  // Calculate the average error over the last N samples DOES NOTHING ATM
-
-
-
-
-
-    void printOutput();   // Does what it says, outputs some useful data to the Serial Monitor
-
-    void plotOutput();       // Makes the serial output formatted for clear display on the Serial Plotter or other graphing software (CSV formatted)
-
-    void plotHeader();       // Prints a header for the serial plotter/ adds coloumn headings to the plotOutput(); method.
-
-
-
-
-
-
-    uint16_t generateTest(uint16_t low_map, uint16_t high_map);       // going to change this to make it function cleaner. Sets the output to a specific value to test sensor limits?
-
-
-    struct sensorMinMax sensorSelfCalibrate();      // Automatic Self Calibration function. Dont know if this really works hidden in the library, will rethink over time.
-
-
-    // Constants
-
-
-
-    // Methods to calculate delay times given a specific sample rate.
-
-    uint32_t calculateSampleDelay(uint32_t sample_rate);
-    uint32_t calculateOutputDelay(uint32_t sample_rate) ;
-    uint32_t calculatePrintDelay(uint32_t print_rate) ;
-    uint32_t calculateInputDelay(uint32_t input_rate);
-
-
-
-
-  private:
-
-
-
-
-
-
+  struct pidVals {
+  float p;
+  float i;
+  float d;
 };
 
 
+  // Methods
 
+  void begin();
+
+  void updateGain(float _kp, float _ki, float _kd);
+
+  void updateLimits(int16_t minLimit =-32768, int16_t maxLimit = 32767);
+
+   // void updateSetpoint(int16_t new_setpoint);   // first specify setpoint
+
+ // void updateSensor(int16_t input_value);      // update library with current sensor value
+
+int16_t PIDcontroller(float setpoint, float sensor_value, int16_t current_output);
+
+pidVals return_pid_vals();
+
+
+
+
+private:
+};
 
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-
-  ## How to Tune PID Controller Manually
-
-  _This means nothing to me, what is reset time?_
-  Manual tuning of PID controller is done by:
-  - setting the reset time to its maximum value and
-  - rate to zero
-  - increasing the gain until
-  -> the loop oscillates at a constant amplitude.
-
-  When the response to an error correction occurs quickly, a larger gain can be used.
-  If response is slow a relatively small gain is desirable.
-
-  Then:
-  - set the gain to half of that value
-  - adjust the reset time so it corrects for any offset within an acceptable period.
-
-  - Finally, increase the rate until overshoot is minimized.
-
-
-*/
